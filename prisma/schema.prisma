@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  phone     String   @unique
+  password  String
+  agents    Agent[]
+  createdAt DateTime @default(now())
+}
+
+model Agent {
+  id        Int       @id @default(autoincrement())
+  phone     String    @unique
+  name      String
+  password  String
+  wallet    Float     @default(0)
+  status    Status    @default(ACTIVE)
+  adminId   Int
+  admin     Admin     @relation(fields: [adminId], references: [id])
+  cashiers  Cashier[]
+  createdAt DateTime  @default(now())
+}
+
+model Cashier {
+  id        Int       @id @default(autoincrement())
+  phone     String    @unique
+  name      String
+  password  String
+  status    Status    @default(ACTIVE)
+  agentId   Int
+  agent     Agent     @relation(fields: [agentId], references: [id])
+  reports   Report[]
+  createdAt DateTime  @default(now())
+}
+
+model Report {
+  id                Int       @id @default(autoincrement())
+  totalCall         Int
+  registeredNumbers Int
+  revenue           Float
+  betAmount         Float
+  date              DateTime
+  status            Status    @default(ACTIVE)
+  cashierId         Int
+  cashier           Cashier   @relation(fields: [cashierId], references: [id])
+  createdAt         DateTime  @default(now())
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}

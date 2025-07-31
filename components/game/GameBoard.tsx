@@ -1,0 +1,692 @@
+"use client";
+
+import { useCallback, useEffect, useState, useRef } from "react";
+import { cn } from "@/lib/utils";
+import type { BingoCard, BingoPattern, CardSetId } from "@/types/types";
+import {
+  bingoCardsSet1,
+  bingoCardsSet2,
+  bingoCardsSet3,
+  bingoCardsSet4,
+  bingoCardsSet5,
+  bingoCardsSet6,
+} from "@/lib/bingoData";
+import GameControls from "./GameControls";
+import { Input } from "../ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Label } from "../ui/label";
+import { Button } from "../ui/button";
+import { toast } from "sonner";
+import { createReport } from "@/lib/api";
+import { WinningAmountDisplay } from "./WinningAmountDisplay";
+import { NumberDisplay } from "./NumberDisplay";
+import { GameStats } from "./GameStats";
+import { NumberBoard } from "./NumberBoard";
+import { checkWinningPattern } from "@/lib/bingoUtils";
+
+interface BoardProps {
+  onBackToSetup: () => void;
+}
+
+const CARD_SETS: Record<CardSetId, BingoCard[]> = {
+  set1: bingoCardsSet1,
+  set2: bingoCardsSet2,
+  set3: bingoCardsSet3,
+  set4: bingoCardsSet4,
+  set5: bingoCardsSet5,
+  set6: bingoCardsSet6,
+};
+
+const generateNumbers = () => Array.from({ length: 75 }, (_, i) => i + 1);
+
+const GameBoard = ({ onBackToSetup }: BoardProps) => {
+  const [allNumbers] = useState(generateNumbers);
+  const [calledNumbers, setCalledNumbers] = useState<number[]>([]);
+  const [currentNumber, setCurrentNumber] = useState<number | null>(null);
+  const [previousNumber, setPreviousNumber] = useState<number | null>(null);
+  const [winningAmount, setWinningAmount] = useState<number | null>(null);
+  const [betAmount, setBetAmount] = useState<number | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+  const [autoCall, setAutoCall] = useState(false);
+  const [isReseting, setisReseting] = useState(false);
+  const [callSpeed, setCallSpeed] = useState(3000);
+  const [selectedCards, setSelectedCards] = useState<BingoCard[]>([]);
+  const [gamePattern, setGamePattern] = useState<BingoPattern>("1line");
+  const [selectedCardSetId, setselectedCardSetId] = useState<CardSetId>("set1");
+  const [winners, setWinners] = useState<number[]>([]);
+  const [blacklistedCards, setBlacklistedCards] = useState<number[]>([]);
+  const [gameOver, setGameOver] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const currentCardSet = CARD_SETS[selectedCardSetId];
+  // Add at the top of your GameBoard component, after `useRef`:
+  const audioCache = useRef<Record<string, HTMLAudioElement>>({});
+
+  // Preload all Dalol audios once on mount
+  useEffect(() => {
+    const preloadAudios = () => {
+      const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
+      const extraFiles = [
+        "win",
+        "lose",
+        "cardnotfound",
+        "reset",
+        "startgame",
+        "stopgame",
+        "bingo_ball",
+        "bonus",
+        "shuffle",
+        "start",
+        "stop",
+      ];
+      numbers.forEach((num) => {
+        const key = `Dalol/${num}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/Dalol/${num}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
+      });
+      extraFiles.forEach((file) => {
+        const key = `Dalol/${file}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/Dalol/${file}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
+      });
+    };
+    preloadAudios();
+  }, []);
+
+  // Updated playAudioForNumber function using Dalol only
+  const playAudioForNumber = useCallback((num: number) => {
+    const key = `Dalol/${num}`;
+    const audio = audioCache.current[key];
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch((err) => {
+        console.warn("Playback failed for", key, err);
+      });
+    } else {
+      console.warn("Audio not found in cache:", key);
+    }
+  }, []);
+
+  const playAudio = useCallback((path: string) => {
+    // Always use Dalol folder for all audio
+    let file = path.split("/").pop() || "";
+    if (!file.endsWith(".mp3")) file += ".mp3";
+    const key = `Dalol/${file.replace(".mp3", "")}`;
+    const audio = audioCache.current[key] || new Audio(`/Dalol/${file}`);
+    try {
+      audio.currentTime = 0;
+      audio.play();
+    } catch (err) {
+      console.warn("Audio playback failed for", key, err);
+    }
+  }, []);
+
+  const callNextNumber = useCallback(() => {
+    const remaining = allNumbers.filter((n) => !calledNumbers.includes(n));
+    if (remaining.length === 0) {
+      setGameOver(true);
+      return;
+    }
+    const next = remaining[Math.floor(Math.random() * remaining.length)];
+    setPreviousNumber(currentNumber);
+    setCurrentNumber(next);
+    setCalledNumbers((prev) => {
+      const updated = [...prev, next];
+      localStorage.setItem("calledNumbers", JSON.stringify(updated));
+      return updated;
+    });
+    playAudioForNumber(next);
+  }, [allNumbers, calledNumbers, currentNumber, playAudioForNumber]);
+
+  function clearSelectedCards() {
+    const gameSetupRaw = localStorage.getItem("gameSetup");
+    if (!gameSetupRaw) return;
+
+    const gameSetup = JSON.parse(gameSetupRaw);
+    gameSetup.selectedCards = [];
+    localStorage.setItem("gameSetup", JSON.stringify(gameSetup));
+  }
+
+  const startNewGame = useCallback(async () => {
+    try {
+      // Save game report first
+      if (autoCall) {
+        setAutoCall(false);
+        localStorage.setItem("autoCall", "false");
+      }
+      setisReseting(true);
+
+      const { error } = await createReport({
+        totalCall: calledNumbers.length,
+        registeredNumbers: selectedCards.length,
+        revenue: selectedCards.length * (betAmount || 0) - (winningAmount || 0),
+        betAmount: betAmount || 0,
+        date: new Date().toISOString(),
+        status: calledNumbers.length < 4 ? "INACTIVE" : "ACTIVE",
+        walletDeduction:
+          calledNumbers.length < 4
+            ? 0
+            : selectedCards.length * (betAmount || 0) - (winningAmount || 0),
+      });
+
+      if (error) {
+        toast.error(error);
+        return;
+      }
+
+      // Reset all game state
+      setCalledNumbers([]);
+      setCurrentNumber(null);
+      setPreviousNumber(null);
+      setWinners([]);
+      setBlacklistedCards([]);
+      setGameOver(false);
+      clearSelectedCards();
+      // Clear localStorage
+      localStorage.removeItem("calledNumbers");
+      localStorage.removeItem("blacklist");
+      localStorage.removeItem("winners");
+      // localStorage.removeItem("gameSetup");
+
+      toast.success("New game started successfully");
+    } catch (err) {
+      console.error("Failed to start new game", err);
+      toast.error("Failed to start new game");
+    }
+  }, [calledNumbers.length, selectedCards.length, betAmount, winningAmount]);
+
+  const resetGame = useCallback(async () => {
+    const confirmed = window.confirm("Are you sure you want to start new game");
+    if (!confirmed) return;
+
+    await startNewGame(); // ensure the report is saved and state is reset first
+    onBackToSetup(); // go back to setup only after everything finishes
+  }, [onBackToSetup, startNewGame]);
+
+  const toggleAutoCall = useCallback(() => {
+    if (autoCall) {
+      playAudio("/Dalol/stop.mp3");
+    } else {
+      playAudio("/Dalol/start.mp3");
+    }
+    setAutoCall((prev) => !prev);
+    localStorage.setItem("autoCall", String(!autoCall));
+  }, [autoCall]);
+
+  const updateCallSpeed = useCallback((speed: number) => {
+    setCallSpeed(speed);
+    localStorage.setItem("callSpeed", speed.toString());
+  }, []);
+
+  useEffect(() => {
+    const loadGameState = () => {
+      try {
+        const savedSetup = localStorage.getItem("gameSetup");
+        const called = localStorage.getItem("calledNumbers");
+        const speed = localStorage.getItem("callSpeed");
+        const lang = localStorage.getItem("audioLang");
+        const blacklist = localStorage.getItem("blacklist");
+        const winnersData = localStorage.getItem("winners");
+        const auto = localStorage.getItem("autoCall");
+
+        if (savedSetup) {
+          const {
+            selectedCards: ids,
+            gamePattern,
+            betAmount,
+            selectedCardSetId,
+            winning,
+          } = JSON.parse(savedSetup);
+          if (gamePattern) setGamePattern(gamePattern);
+          if (selectedCardSetId) setselectedCardSetId(selectedCardSetId);
+          setBetAmount(betAmount || 0);
+          setWinningAmount(winning || 0);
+          // Use the correct card set based on the loaded selectedCardSetId
+          const correctCardSet =
+            CARD_SETS[selectedCardSetId as CardSetId] || [];
+          const allCards: BingoCard[] = JSON.parse(
+            JSON.stringify(correctCardSet)
+          );
+          setSelectedCards(allCards.filter((c) => ids.includes(c.id)));
+        }
+        if (called) {
+          const calledParsed = JSON.parse(called);
+          setCalledNumbers(calledParsed);
+          setCurrentNumber(calledParsed[calledParsed.length - 1] || null);
+          setPreviousNumber(
+            calledParsed.length > 1
+              ? calledParsed[calledParsed.length - 2]
+              : null
+          );
+        }
+        if (speed) setCallSpeed(Number.parseInt(speed));
+        if (lang) {
+          // This line is removed as per the edit hint
+        }
+        if (blacklist) setBlacklistedCards(JSON.parse(blacklist));
+        if (winnersData) setWinners(JSON.parse(winnersData));
+        if (auto) setAutoCall(auto === "true");
+      } catch (err) {
+        console.error("Error loading saved game", err);
+      }
+    };
+
+    loadGameState();
+  }, []);
+
+  useEffect(() => {
+    if (autoCall && !gameOver) {
+      intervalRef.current = setInterval(callNextNumber, callSpeed);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [autoCall, callNextNumber, callSpeed, gameOver]);
+
+  useEffect(() => {
+    if (!currentNumber) return;
+    setIsVisible(true);
+    const interval = setInterval(() => setIsVisible((v) => !v), 500);
+    return () => clearInterval(interval);
+  }, [currentNumber]);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [inputCardId, setInputCardId] = useState("");
+  const [checkResult, setCheckResult] = useState<null | {
+    status: "win" | "lose" | "not_in_game" | "already_checked" | "already_won";
+    card?: BingoCard;
+  }>(null);
+
+  const getStatusConfig = (status: string) => {
+    const configs = {
+      win: {
+        bg: "bg-green-100",
+        text: "text-green-800",
+        message: "GOOD BINGO!",
+        toast: () => toast.success("Bingo! This card is a winner!"),
+      },
+      not_in_game: {
+        bg: "bg-yellow-100",
+        text: "text-yellow-800",
+        message: "CARD NOT IN CURRENT GAME",
+        toast: () => toast.warning("This card isn't in the current game"),
+      },
+      already_checked: {
+        bg: "bg-gray-100",
+        text: "text-red-800",
+        message: "CARD LOCKED - NO BINGO",
+        toast: () => toast.error("Card already checked - No Bingo"),
+      },
+      already_won: {
+        bg: "bg-blue-100",
+        text: "text-blue-800",
+        message: "CARD ALREADY WON!",
+        toast: () => toast.info("This card has already won!"),
+      },
+      lose: {
+        bg: "bg-red-100",
+        text: "text-red-800",
+        message: "NO BINGO - CARD LOCKED",
+        toast: () => toast.error("No Bingo - Card locked"),
+      },
+    };
+
+    return configs[status as keyof typeof configs] || configs.lose;
+  };
+
+  const handleCardCheck = () => {
+    const cardId = Number.parseInt(inputCardId);
+    if (isNaN(cardId)) {
+      toast.error("Please enter a valid card number");
+      setCheckResult({ status: "lose" });
+      return;
+    }
+
+    const card = currentCardSet.find((c) => c.id === cardId);
+    if (!card) {
+      toast.error("Card not found");
+      playAudio("/audio6/cardnotfound.mp3");
+      setCheckResult({ status: "lose" });
+      return;
+    }
+
+    const isInGame = selectedCards.some((c) => c.id === cardId);
+    if (!isInGame) {
+      setCheckResult({ status: "not_in_game", card });
+      playAudio(`/audio6/cardnotfound.mp3`);
+      getStatusConfig("not_in_game").toast();
+      return;
+    }
+
+    if (winners.includes(cardId)) {
+      setCheckResult({ status: "already_won", card });
+      getStatusConfig("already_won").toast();
+      return;
+    }
+
+    if (blacklistedCards.includes(cardId)) {
+      setCheckResult({ status: "already_checked", card });
+      getStatusConfig("already_checked").toast();
+      return;
+    }
+
+    const result = checkWinningPattern(card, calledNumbers, gamePattern);
+    const isWinner = result.isWinner;
+    const status = isWinner ? "win" : "lose";
+
+    if (isWinner) {
+      playAudio(`/Dalol/win.mp3`);
+      setWinners((prev) => {
+        const updated = [...prev, cardId];
+        localStorage.setItem("winners", JSON.stringify(updated));
+        return updated;
+      });
+    } else {
+      playAudio(`/Dalol/lose.mp3`);
+      setBlacklistedCards((prev) => {
+        const updated = [...prev, cardId];
+        localStorage.setItem("blacklist", JSON.stringify(updated));
+        return updated;
+      });
+    }
+
+    setCheckResult({ status, card });
+    getStatusConfig(status).toast();
+  };
+
+  const resetModal = () => {
+    setInputCardId("");
+    setCheckResult(null);
+  };
+
+  const renderCardGrid = (cardId: number) => {
+    const card = currentCardSet.find((c) => c.id === cardId);
+    if (!card) return null;
+
+    // Get winning cells if this is a winning card
+    const winningCells =
+      checkResult?.status === "win"
+        ? checkWinningPattern(card, calledNumbers, gamePattern).winningCells
+        : [];
+
+    return (
+      <div className="grid grid-cols-5 gap-1 mb-4 text-center font-bold w-fit mx-auto">
+        <div className="bg-blue-500 text-white p-1 rounded">B</div>
+        <div className="bg-red-500 text-white p-1 rounded">I</div>
+        <div className="bg-green-500 text-white p-1 rounded">N</div>
+        <div className="bg-yellow-600 text-white p-1 rounded">G</div>
+        <div className="bg-purple-500 text-white p-1 rounded">O</div>
+
+        {Array.from({ length: 5 }).map((_, rowIndex) =>
+          ["B", "I", "N", "G", "O"].map((letter, colIndex) => {
+            const column = card[letter as keyof typeof card] as number[];
+            const num = column?.[rowIndex];
+            const isWinningCell = winningCells.some(
+              (cell) => cell.row === rowIndex && cell.col === colIndex
+            );
+            const isCalled = num !== undefined && calledNumbers.includes(num);
+            const isCurrentOrPrevious =
+              num === currentNumber || num === previousNumber;
+
+            return (
+              <div
+                key={`${letter}-${rowIndex}`}
+                className={cn(
+                  "border p-1 text-center font-normal w-10 h-10 flex items-center justify-center",
+                  num === 0 ? "bg-yellow-600 text-black border-gray-700" : "",
+                  isCalled ? "bg-gray-600 text-white" : "border-gray-700",
+                  isCurrentOrPrevious ? "border-4 border-red-500" : "",
+                  isWinningCell ? "!bg-green-500 !text-white" : ""
+                )}
+              >
+                {num === 0 ? (
+                  <div className="text-xs leading-tight">FREE</div>
+                ) : (
+                  num
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const shuffel = () => {
+    const confirmed = window.confirm("Are you sure you want to shuffle?");
+    if (!confirmed) return;
+    if (autoCall) {
+      setAutoCall(false);
+    }
+    setisReseting(true);
+    playAudio("/Dalol/bingo_ball.mp3");
+    timeoutRef.current = setTimeout(() => {
+      setisReseting(false);
+    }, 10000);
+  };
+
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col justify-start items-center h-screen px-6 bg-[#09519E] relative overflow-hidden ">
+      {/* Diamond Pattern Overlay */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <pattern
+            id="diamondPattern"
+            x="0"
+            y="0"
+            width="20"
+            height="20"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M10 0 L20 10 L10 20 L0 10 Z"
+              stroke="white"
+              strokeWidth="0.5"
+              fill="none"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#diamondPattern)" />
+      </svg>
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          setIsModalOpen(open);
+          if (!open) resetModal();
+        }}
+      >
+        <DialogContent className="max-w-md w-[95vw] z-50 bg-[#09519E] text-xl shadow text-white ">
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <defs>
+              <pattern
+                id="diamondPattern"
+                x="0"
+                y="0"
+                width="20"
+                height="20"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M10 0 L20 10 L10 20 L0 10 Z"
+                  stroke="white"
+                  strokeWidth="0.5"
+                  fill="none"
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#diamondPattern)" />
+          </svg>
+          <DialogHeader>
+            <DialogTitle className="text-yellow-300 font-bold">
+              Check Bingo Card
+            </DialogTitle>
+            <DialogDescription className="text-white text-sm">
+              Enter the card number to check if it has a winning pattern.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="card-number">Card Number</Label>
+              <Input
+                id="card-number"
+                value={inputCardId}
+                onChange={(e) => setInputCardId(e.target.value)}
+                type="number"
+                min="1"
+                onKeyDown={(e) => e.key === "Enter" && handleCardCheck()}
+                className="bg-white text-black"
+              />
+            </div>
+
+            {inputCardId && checkResult?.card && (
+              <>
+                {!(
+                  checkResult.status === "already_checked" ||
+                  checkResult.status === "not_in_game"
+                ) && renderCardGrid(Number.parseInt(inputCardId))}
+
+                <div
+                  className={cn(
+                    "p-4 rounded text-center font-bold text-lg",
+                    getStatusConfig(checkResult.status).bg,
+                    getStatusConfig(checkResult.status).text
+                  )}
+                >
+                  {getStatusConfig(checkResult.status).message}
+                </div>
+              </>
+            )}
+
+            <button
+              onClick={handleCardCheck}
+              disabled={!inputCardId}
+              className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-yellow-400 to-yellow-500 text-black font-bold text-xl px-6 py-2 rounded-md shadow-inner shadow-yellow-700 ring-2 ring-yellow-600 "
+            >
+              Check Card
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex flex-col justify-between ml-10 z-50 items-center w-full h-full">
+        {/* <GameStats
+          calledNumbers={calledNumbers}
+          calledCount={calledNumbers.length}
+          previousNumber={previousNumber}
+          gamePattern={gamePattern}
+          selectedCardSetId={selectedCardSetId}
+        /> */}
+
+        <div className="hidden sm:flex w-full mt-4 justify-around items-start gap-4 overflow-auto">
+          <div className="h-full w-[250px] flex items-center justify-center">
+            <NumberDisplay
+              previousNumbers={[...calledNumbers].slice(-4).reverse().slice(1)}
+              calledNumbers={calledNumbers}
+              currentNumber={currentNumber}
+            />
+          </div>
+          <NumberBoard
+            isVisible={isVisible}
+            reset={isReseting}
+            calledNumbers={calledNumbers}
+            currentNumber={currentNumber}
+          />
+        </div>
+        <div className="flex flex-col w-full justify-center items-start gap-4  ">
+          <div className="tot-bet-card">
+            <h2 className="tot-bet-title font-potta-one text-3xl">
+              Bonus Type
+            </h2>
+            <div className="tot-bet-display-wrapper">
+              <div className="tot-bet-display">11 call</div>
+            </div>
+          </div>
+          <div className="tot-bet-card">
+            <h2 className="tot-bet-title font-potta-one text-3xl">
+              Bonus Amount
+            </h2>
+            <div className="tot-bet-display-wrapper">
+              <div className="tot-bet-display">200 birr</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex w-full justify-center px- items-center gap-4 mb-22 ">
+          <div className="flex w-full items-center gap-4 ">
+            <div className="tot-bet-card">
+              <h2 className="tot-bet-title font-potta-one text-2xl"> BET</h2>
+              <div className="tot-bet-display-wrapper">
+                <div className="tot-bet-display">{betAmount}Birr</div>
+              </div>
+            </div>
+            <div className="tot-bet-card">
+              <h2 className="tot-bet-title font-potta-one text-2xl">TOT BET</h2>
+              <div className="tot-bet-display-wrapper">
+                <div className="tot-bet-display">{winningAmount}Birr</div>
+              </div>
+            </div>
+          </div>
+          <GameControls
+            setup={() => {
+              if (autoCall) {
+                setAutoCall(false);
+                localStorage.setItem("autoCall", "false");
+              }
+              onBackToSetup();
+            }}
+            isAutoPlaying={autoCall}
+            shuffel={shuffel}
+            toggleAutoPlay={toggleAutoCall}
+            callSpeed={callSpeed}
+            handleSpeedChange={updateCallSpeed}
+            gameOver={gameOver}
+            handleResetConfirm={resetGame}
+            handleCheckCard={() => {
+              if (autoCall) {
+                toggleAutoCall(); // stop auto play
+              }
+              setIsModalOpen(true);
+            }}
+            callNextNumber={callNextNumber}
+          />
+
+          {/* <WinningAmountDisplay amount={winningAmount} /> */}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GameBoard;
