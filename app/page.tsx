@@ -84,9 +84,7 @@ export default function LoginPage() {
             width={400}
             height={300}
           /> */}
-          <h1 className="text-5xl font-bold text-yellow-300 font-acme">
-            Bingo
-          </h1>
+          <h1 className="text-5xl font-bold text-gray-900 font-acme">Bingo</h1>
         </div>
       </div>
 
