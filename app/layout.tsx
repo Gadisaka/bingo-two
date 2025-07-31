@@ -43,8 +43,8 @@ const pottaOne = Potta_One({
 });
 
 export const metadata: Metadata = {
-  title: "EthioStar Bingo",
-  description: "EthioStar Bingo Game Shop",
+  title: "Bingo",
+  description: "Bingo Game Shop",
 };
 
 export default function RootLayout({
