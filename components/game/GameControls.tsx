@@ -66,7 +66,7 @@ export default function GameControls({
   };
 
   return (
-    <div className="p-4  w-full">
+    <div className="p-4 w-fit">
       <div className="space-y-2 flex gap-4 md:gap-20 flex-col md:flex-row">
         {/* <div className="flex flex-col gap-2 justify-center items-center w-full"> */}
         <div className="flex gap-4">
@@ -81,7 +81,7 @@ export default function GameControls({
             onClick={toggleAutoPlay}
             disabled={gameOver}
           >
-            {isAutoPlaying ? <>PAUSE AUTO PLAY</> : <>START AUTO PLAY</>}
+            {isAutoPlaying ? <>PAUSE</> : <>START</>}
           </button>
 
           {/* <button
@@ -103,7 +103,8 @@ export default function GameControls({
           </button>
 
           <button
-            className="yellow-card-button px-6 py-3 text-2xl "
+            className="yellow-card-button px-6 py-3 text-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isAutoPlaying}
             onClick={shuffel}
           >
             SHUFFLE

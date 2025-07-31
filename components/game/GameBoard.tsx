@@ -62,9 +62,18 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   const [winners, setWinners] = useState<number[]>([]);
   const [blacklistedCards, setBlacklistedCards] = useState<number[]>([]);
   const [gameOver, setGameOver] = useState(false);
+  const [bonusType, setBonusType] = useState<string>("winner");
+  const [bonusAmount, setBonusAmount] = useState<number>(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentCardSet = CARD_SETS[selectedCardSetId];
+
+  // Bonus type and amount arrays (same as GameSetUp)
+  const BONUS_TYPES = ["winner", "x", "L", "T", "8 call", "10 call", "13 call"];
+  const BONUS_AMOUNTS = [
+    0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 1000, 1300,
+  ];
+
   // Add at the top of your GameBoard component, after `useRef`:
   const audioCache = useRef<Record<string, HTMLAudioElement>>({});
 
@@ -107,6 +116,10 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
   // Updated playAudioForNumber function using Dalol only
   const playAudioForNumber = useCallback((num: number) => {
+    // Check if audio is muted
+    const isMuted = localStorage.getItem("audioMuted") === "true";
+    if (isMuted) return;
+
     const key = `Dalol/${num}`;
     const audio = audioCache.current[key];
     if (audio) {
@@ -120,6 +133,10 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   }, []);
 
   const playAudio = useCallback((path: string) => {
+    // Check if audio is muted
+    const isMuted = localStorage.getItem("audioMuted") === "true";
+    if (isMuted) return;
+
     // Always use Dalol folder for all audio
     let file = path.split("/").pop() || "";
     if (!file.endsWith(".mp3")) file += ".mp3";
@@ -155,6 +172,21 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     if (!gameSetupRaw) return;
 
     const gameSetup = JSON.parse(gameSetupRaw);
+
+    // Save previous game data before clearing
+    if (gameSetup.selectedCards && gameSetup.selectedCards.length > 0) {
+      const previousGameData = {
+        ...gameSetup,
+        previousSelectedCards: gameSetup.selectedCards,
+        previousGameDate: new Date().toISOString(),
+      };
+      localStorage.setItem(
+        "previousGameSetup",
+        JSON.stringify(previousGameData)
+      );
+    }
+
+    // Clear current game data
     gameSetup.selectedCards = [];
     localStorage.setItem("gameSetup", JSON.stringify(gameSetup));
   }
@@ -278,6 +310,18 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         if (blacklist) setBlacklistedCards(JSON.parse(blacklist));
         if (winnersData) setWinners(JSON.parse(winnersData));
         if (auto) setAutoCall(auto === "true");
+
+        // Load bonus settings
+        const bonusTypeIndex = localStorage.getItem("bonusTypeIndex");
+        const bonusAmountIndex = localStorage.getItem("bonusAmountIndex");
+        if (bonusTypeIndex) {
+          const index = Number.parseInt(bonusTypeIndex);
+          setBonusType(BONUS_TYPES[index] || "winner");
+        }
+        if (bonusAmountIndex) {
+          const index = Number.parseInt(bonusAmountIndex);
+          setBonusAmount(BONUS_AMOUNTS[index] || 0);
+        }
       } catch (err) {
         console.error("Error loading saved game", err);
       }
@@ -626,25 +670,25 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           />
         </div>
         <div className="flex flex-col w-full justify-center items-start gap-4  ">
-          <div className="tot-bet-card">
-            <h2 className="tot-bet-title font-potta-one text-3xl">
+          <div className="tot-bet-card ml-4">
+            <h2 className="tot-bet-title font-potta-one text-2xl">
               Bonus Type
             </h2>
             <div className="tot-bet-display-wrapper">
-              <div className="tot-bet-display">11 call</div>
+              <div className="tot-bet-display">{bonusType}</div>
             </div>
           </div>
           <div className="tot-bet-card">
-            <h2 className="tot-bet-title font-potta-one text-3xl">
+            <h2 className="tot-bet-title font-potta-one text-2xl">
               Bonus Amount
             </h2>
             <div className="tot-bet-display-wrapper">
-              <div className="tot-bet-display">200 birr</div>
+              <div className="tot-bet-display">{bonusAmount} birr</div>
             </div>
           </div>
         </div>
-        <div className="flex w-full justify-center px- items-center gap-4 mb-22 ">
-          <div className="flex w-full items-center gap-4 ">
+        <div className="flex w-full justify-around px items-center gap-4 mb-22 ">
+          <div className="flex w-fit items-center gap-4 ">
             <div className="tot-bet-card">
               <h2 className="tot-bet-title font-potta-one text-2xl"> BET</h2>
               <div className="tot-bet-display-wrapper">
