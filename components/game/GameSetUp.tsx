@@ -360,14 +360,18 @@ export default function GameSetup({ onStart }: setUpProps) {
 
   const handleCardInputSubmit = () => {
     const cardNumber = parseInt(cardInputValue);
-    if (!isNaN(cardNumber) && cardNumber >= 1 && cardNumber <= 100) {
+    if (!isNaN(cardNumber) && cardNumber >= 1 && cardNumber <= 150) {
       toggleCardSelection(cardNumber);
       setCardInputValue("");
-      setShowCardInputModal(false);
       toast.success(`Card ${cardNumber} selected!`);
     } else {
       toast.error("Please enter a valid card number between 1 and 100");
     }
+  };
+
+  const handleCardInputDone = () => {
+    setCardInputValue("");
+    setShowCardInputModal(false);
   };
 
   const handleCardInputCancel = () => {
@@ -437,8 +441,8 @@ export default function GameSetup({ onStart }: setUpProps) {
   const allCards: BingoCard[] = bingoCardsSet1;
 
   // Pick cards based on current page (100 cards per page)
-  const startIndex = (currentPage - 1) * 100;
-  const endIndex = startIndex + 100;
+  const startIndex = (currentPage - 1) * 150;
+  const endIndex = startIndex + 150;
   const currentCards = allCards.slice(startIndex, endIndex);
 
   function toggleFullscreen() {
@@ -527,9 +531,6 @@ export default function GameSetup({ onStart }: setUpProps) {
             <DialogTitle className="text-yellow-300 font-bold">
               Enter Card Number
             </DialogTitle>
-            <DialogDescription className="text-white text-sm">
-              Enter a card number between 1 and 100 to select it.
-            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -541,18 +542,44 @@ export default function GameSetup({ onStart }: setUpProps) {
                 type="number"
                 min="1"
                 max="100"
-                placeholder="Enter 1-100"
+                placeholder="Enter 1-150"
                 onKeyDown={(e) => e.key === "Enter" && handleCardInputSubmit()}
                 className="bg-white text-black"
               />
             </div>
+
+            {/* Display selected numbers */}
+            {selectedCards.length > 0 && (
+              <div className="bg-gray-700 p-3 rounded">
+                <Label className="text-white text-sm mb-2 block">
+                  Selected Cards:
+                </Label>
+                <div className="flex flex-wrap gap-2 max-h-20 overflow-y-auto">
+                  {selectedCards.map((cardId) => (
+                    <span
+                      key={cardId}
+                      className="bg-orange-500 text-white px-2 py-1 rounded text-sm"
+                    >
+                      {cardId}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 onClick={handleCardInputSubmit}
                 disabled={!cardInputValue}
                 className="flex-1 bg-gradient-to-b cursor-pointer hover:opacity-90 from-yellow-400 to-yellow-500 text-black font-bold text-xl px-6 py-2 rounded-md shadow-inner shadow-yellow-700 ring-2 ring-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                OK
+                Add
+              </button>
+              <button
+                onClick={handleCardInputDone}
+                className="flex-1 bg-gradient-to-b cursor-pointer hover:opacity-90 from-green-400 to-green-500 text-white font-bold text-xl px-6 py-2 rounded-md shadow-inner shadow-green-700 ring-2 ring-green-600"
+              >
+                Done
               </button>
               <button
                 onClick={handleCardInputCancel}
@@ -603,9 +630,9 @@ export default function GameSetup({ onStart }: setUpProps) {
             </button>
 
             {/* Numbers Grid */}
-            <div className="flex-1 overflow-auto p-4 pt-20">
-              <div className="grid grid-cols-15 gap-3 w-full">
-                {Array.from({ length: 100 }, (_, i) => i + 1).map((number) => (
+            <div className="flex-1 overflow-auto p-10 pt-20">
+              <div className="grid grid-cols-15 gap-5 w-full">
+                {Array.from({ length: 150 }, (_, i) => i + 1).map((number) => (
                   <button
                     key={number}
                     onClick={() => toggleCardSelection(number)}
@@ -635,37 +662,9 @@ export default function GameSetup({ onStart }: setUpProps) {
           >
             <Fullscreen className="h-10 w-10" />
           </button>
-          <div className="flex flex-col justify-center items-center gap-2">
-            <h1 className="text-xl white font-bold text-white font-potta-one">
-              Game Speed
-            </h1>
-            <div className="counter-container">
-              <button
-                className={`counter-button ${
-                  callSpeed <= 2 ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                onClick={decrementSpeed}
-                disabled={callSpeed <= 2}
-              >
-                -
-              </button>
-              <div className="counter-display-wrapper">
-                <div className="counter-display px-6 py-2">{callSpeed}</div>
-              </div>
-              <button
-                className={`counter-button ${
-                  callSpeed >= 6 ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                onClick={incrementSpeed}
-                disabled={callSpeed >= 6}
-              >
-                +
-              </button>
-            </div>
-          </div>
         </div>
         <h1 className="text-6xl  text-stroke-white font-bold my-3 z-10 text-orange-500 font-potta-one ">
-          SELECT CARDS
+          GOLD BINGO
         </h1>
         <div className="flex justify-center items-center gap-4">
           <button
@@ -793,50 +792,52 @@ export default function GameSetup({ onStart }: setUpProps) {
         </div>
       </div> */}
       {/* Show Selected Modal Toggle */}
-      {/* <div className="flex items-center gap-2 mb-2">
-        <input
-          id="showSelectedModalCheckbox"
-          type="checkbox"
-          checked={showSelectedModal}
-          onChange={() => setShowSelectedModal((v) => !v)}
-          className="accent-[#1abc9c]"
-        />
-        <label
-          htmlFor="showSelectedModalCheckbox"
-          className="text-sm text-gray-300 hover:text-[#1abc9c] cursor-pointer"
-        >
-          Show Selected
-        </label>
-      </div> */}
 
       {/* Selected Cards Modal */}
-      {/* {showSelectedModal && (
-        <div className="relative bg-gray-900 rounded-md shadow-lg w-full max-h-[50vh] overflow-y-auto p-2 mb-2">
-          <p className="text-[#1abc9c] font-bold mb-2">
-            Selected Cards ({selectedCards.length})
-          </p>
-          {selectedCards.length === 0 ? (
-            <p className="text-gray-400">No cards selected.</p>
-          ) : (
-            <div className="flex gap-2 flex-wrap">
-              {selectedCards.map((id) => (
-                <div
-                  key={id}
-                  className="bg-cyan-600 text-white w-10 h-10 flex items-center justify-center rounded font-mono font-semibold"
-                >
-                  {id}
-                </div>
-              ))}
+      {showSelectedModal && (
+        <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-[500]">
+          <div className="bg-gray-900 rounded-lg shadow-2xl w-[90vw] h-[80vh] max-w-4xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-orange-600 text-white p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold">
+                Selected Cards ({selectedCards.length})
+              </h2>
+              <button
+                onClick={() => setShowSelectedModal(false)}
+                className="text-white hover:text-gray-300 text-2xl font-bold"
+              >
+                ×
+              </button>
             </div>
-          )}
+
+            {/* Content */}
+            <div className="p-6 h-full overflow-y-auto">
+              {selectedCards.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-400 text-lg">No cards selected.</p>
+                </div>
+              ) : (
+                <div className="flex gap-3 flex-wrap">
+                  {selectedCards.map((id) => (
+                    <div
+                      key={id}
+                      className="bg-orange-500 text-white w-16 h-16 flex items-center justify-center rounded-lg font-mono font-bold text-lg shadow-lg hover:bg-orange-600 transition-colors"
+                    >
+                      {id}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      )} */}
+      )}
 
       {/* Action Buttons */}
 
       {/* Cards Grid */}
       <div className="flex justify-around w-full items-center">
-        <div className="flex flex-col justify-center items-center gap-6">
+        {/* <div className="flex flex-col justify-center items-center gap-6">
           <div className="flex flex-col justify-center items-center gap-2">
             <h1 className="text-xl white font-bold text-white font-potta-one">
               Bonus Type
@@ -903,56 +904,90 @@ export default function GameSetup({ onStart }: setUpProps) {
               </button>
             </div>
           </div>
+        </div> */}
+
+        <div className="flex flex-col justify-center items-center gap-2">
+          <h1 className="text-xl white font-bold text-white font-potta-one">
+            Game Speed
+          </h1>
+          <div className="counter-container">
+            <button
+              className={`counter-button ${
+                callSpeed <= 2 ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              onClick={decrementSpeed}
+              disabled={callSpeed <= 2}
+            >
+              -
+            </button>
+            <div className="counter-display-wrapper">
+              <div className="counter-display px-6 py-2">{callSpeed}</div>
+            </div>
+            <button
+              className={`counter-button ${
+                callSpeed >= 6 ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              onClick={incrementSpeed}
+              disabled={callSpeed >= 6}
+            >
+              +
+            </button>
+          </div>
         </div>
-        <div className="max-h-[320px] overflow-y-scroll bg-gray-800 z-50 border-gray-700 p-6 space-y-4">
-          {Array.from(
-            { length: Math.ceil(currentCards.length / 20) },
-            (_, rowIndex) => {
-              const startIdx = rowIndex * 20;
-              const rowCards = currentCards.slice(startIdx, startIdx + 20);
-              return (
-                <div
-                  key={rowIndex}
-                  className="grid grid-cols-7 gap-2 "
-                  aria-label={`Row ${rowIndex + 1} of cards`}
-                >
-                  {rowCards.map((card) => (
-                    <div
-                      className={`flex justify-center items-center w-26 h-26  rounded-full shadow-lg ${
-                        selectedCards.includes(Number(card.id))
-                          ? "bg-orange-500"
-                          : "bg-gray-300"
-                      }`}
-                    >
-                      <div className="flex justify-center items-center w-25 h-25 bg-gray-800 rounded-full">
-                        <button
-                          key={card.id}
-                          type="button"
-                          onClick={() => toggleCardSelection(Number(card.id))}
-                          className={cn(
-                            "w-20 h-20 rounded-full  text-3xl font-normal flex items-center justify-center transition-colors",
-                            selectedCards.includes(Number(card.id))
-                              ? "bg-orange-500 text-white shadow-lg"
-                              : "bg-gray-300 text-gray-900 hover:bg-gray-400"
-                          )}
-                          aria-pressed={selectedCards.includes(Number(card.id))}
-                          aria-label={`Card ${card.id} ${
-                            selectedCards.includes(Number(card.id))
-                              ? "selected"
-                              : "not selected"
-                          }`}
-                        >
-                          <span className="text-3xl font-bold">{card.id}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+        <div className="max-h-[400px] overflow-y-scroll bg-gray-800 z-50 border-gray-700 p-10 space-y-10">
+          <div
+            className="grid grid-cols-7 gap-6"
+            aria-label="Card selection grid"
+          >
+            {currentCards.map((card) => (
+              <div
+                key={card.id}
+                className={`flex justify-center items-center w-32 h-32 rounded-full shadow-lg ${
+                  selectedCards.includes(Number(card.id))
+                    ? "bg-orange-500"
+                    : "bg-gray-300"
+                }`}
+              >
+                <div className="flex justify-center items-center w-28 h-28 bg-gray-800 rounded-full">
+                  <button
+                    type="button"
+                    onClick={() => toggleCardSelection(Number(card.id))}
+                    className={cn(
+                      "w-24 h-24 rounded-full text-4xl font-normal flex items-center justify-center transition-colors",
+                      selectedCards.includes(Number(card.id))
+                        ? "bg-orange-500 text-white shadow-lg"
+                        : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+                    )}
+                    aria-pressed={selectedCards.includes(Number(card.id))}
+                    aria-label={`Card ${card.id} ${
+                      selectedCards.includes(Number(card.id))
+                        ? "selected"
+                        : "not selected"
+                    }`}
+                  >
+                    <span className="text-4xl font-bold">{card.id}</span>
+                  </button>
                 </div>
-              );
-            }
-          )}
+              </div>
+            ))}
+          </div>
         </div>
         <div className="flex flex-col justify-center items-center gap-10">
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              id="showSelectedModalCheckbox"
+              type="checkbox"
+              checked={showSelectedModal}
+              onChange={() => setShowSelectedModal((v) => !v)}
+              className="accent-orange-500"
+            />
+            <label
+              htmlFor="showSelectedModalCheckbox"
+              className="text-sm text-gray-300 hover:text-orange-500 cursor-pointer"
+            >
+              Show Selected
+            </label>
+          </div>
           <button
             className="yellow-card-button text-center w-44 py-3 text-xl"
             onClick={handleEnterCard}

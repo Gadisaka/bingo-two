@@ -75,22 +75,24 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#1b2433]">
       {/* Left Branding Panel */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-green-400">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#ECA50B]">
         <div className="max-w-md text-center space-y-6">
-          {/* <Image
+          <Image
             src="/EthioStar.png"
             className="object-cover"
             alt="logo"
-            width={400}
-            height={300}
-          /> */}
-          <h1 className="text-5xl font-bold text-gray-900 font-acme">Bingo</h1>
+            width={500}
+            height={400}
+          />
+          <h1 className="text-6xl font-bold text-red-700 font-acme">
+            Gold Bingo
+          </h1>
         </div>
       </div>
 
       {/* Right Login Form Panel */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6">
-        <Card className="w-full max-w-md bg-[#1b2433] border-t-4 border-green-400">
+        <Card className="w-full max-w-md bg-[#1b2433] border-t-4 border-[#ECA50B]">
           <CardContent className="p-6 sm:p-8">
             <div className="text-center mb-6">
               <div className="w-12 h-12 mx-auto bg-white/10 flex items-center justify-center rounded-full mb-2">
@@ -156,7 +158,7 @@ export default function LoginPage() {
 
               {/* Submit Button */}
               <Button
-                className="w-full text-white font-medium bg-green-400"
+                className="w-full text-white font-medium bg-[#ECA50B]"
                 onClick={handleLogin}
                 disabled={loadingLogin}
               >

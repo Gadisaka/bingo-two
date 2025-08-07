@@ -86,11 +86,11 @@ export default function CashierLayout({
           icon: <Gamepad2 className="h-4 w-4" />,
           path: "/cashier/game",
         },
-        // {
-        //   name: "Jackpot",
-        //   icon: <Gift className="h-4 w-4" />,
-        //   path: "/cashier/jackpot",
-        // },
+        {
+          name: "Jackpot",
+          icon: <Gift className="h-4 w-4" />,
+          path: "/cashier/jackpot",
+        },
         {
           name: "Reports",
           icon: <FileText className="h-4 w-4" />,

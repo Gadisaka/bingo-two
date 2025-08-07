@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { BingoCard, BingoPattern, CardSetId } from "@/types/types";
 import {
@@ -65,6 +66,11 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   const [bonusType, setBonusType] = useState<string>("winner");
   const [bonusAmount, setBonusAmount] = useState<number>(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [jackpotResult, setJackpotResult] = useState<null | {
+    isJackpot: boolean;
+    jackpotAmount: number;
+  }>(null);
+  const [jackpotEnabled, setJackpotEnabled] = useState(true);
 
   const currentCardSet = CARD_SETS[selectedCardSetId];
 
@@ -77,7 +83,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   // Add at the top of your GameBoard component, after `useRef`:
   const audioCache = useRef<Record<string, HTMLAudioElement>>({});
 
-  // Preload all Dalol audios once on mount
+  // Preload all Gold audios once on mount
   useEffect(() => {
     const preloadAudios = () => {
       const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
@@ -95,17 +101,17 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "stop",
       ];
       numbers.forEach((num) => {
-        const key = `Dalol/${num}`;
+        const key = `Gold/${num}`;
         if (!audioCache.current[key]) {
-          const audio = new Audio(`/Dalol/${num}.mp3`);
+          const audio = new Audio(`/Gold/${num}.mp3`);
           audio.preload = "auto";
           audioCache.current[key] = audio;
         }
       });
       extraFiles.forEach((file) => {
-        const key = `Dalol/${file}`;
+        const key = `Gold/${file}`;
         if (!audioCache.current[key]) {
-          const audio = new Audio(`/Dalol/${file}.mp3`);
+          const audio = new Audio(`/Gold/${file}.mp3`);
           audio.preload = "auto";
           audioCache.current[key] = audio;
         }
@@ -114,13 +120,13 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     preloadAudios();
   }, []);
 
-  // Updated playAudioForNumber function using Dalol only
+  // Updated playAudioForNumber function using Gold only
   const playAudioForNumber = useCallback((num: number) => {
     // Check if audio is muted
     const isMuted = localStorage.getItem("audioMuted") === "true";
     if (isMuted) return;
 
-    const key = `Dalol/${num}`;
+    const key = `Gold/${num}`;
     const audio = audioCache.current[key];
     if (audio) {
       audio.currentTime = 0;
@@ -137,11 +143,11 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     const isMuted = localStorage.getItem("audioMuted") === "true";
     if (isMuted) return;
 
-    // Always use Dalol folder for all audio
+    // Always use Gold folder for all audio
     let file = path.split("/").pop() || "";
     if (!file.endsWith(".mp3")) file += ".mp3";
-    const key = `Dalol/${file.replace(".mp3", "")}`;
-    const audio = audioCache.current[key] || new Audio(`/Dalol/${file}`);
+    const key = `Gold/${file.replace(".mp3", "")}`;
+    const audio = audioCache.current[key] || new Audio(`/Gold/${file}`);
     try {
       audio.currentTime = 0;
       audio.play();
@@ -249,9 +255,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
   const toggleAutoCall = useCallback(() => {
     if (autoCall) {
-      playAudio("/Dalol/stop.mp3");
+      playAudio("/Gold/stop.mp3");
     } else {
-      playAudio("/Dalol/start.mp3");
+      playAudio("/Gold/start.mp3");
     }
     setAutoCall((prev) => !prev);
     localStorage.setItem("autoCall", String(!autoCall));
@@ -348,10 +354,40 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     return () => clearInterval(interval);
   }, [currentNumber]);
 
+  useEffect(() => {
+    // Read jackpotEnabled from localStorage on mount and check if it should be active
+    const jackpotSettingsRaw = localStorage.getItem("jackpotSettings");
+    if (jackpotSettingsRaw) {
+      try {
+        const jackpotSettings = JSON.parse(jackpotSettingsRaw);
+        const jackpotStartingAmount = Number(
+          jackpotSettings.jackpotStartingAmount || jackpotSettings.jackpotAmount
+        );
+        const totalBetAmount = selectedCards.length * (betAmount || 0);
+
+        // Jackpot is enabled if setting is "On" AND total bet meets minimum requirement
+        const shouldBeEnabled =
+          jackpotSettings.jackpotEnabled === "On" &&
+          totalBetAmount >= jackpotStartingAmount;
+        setJackpotEnabled(shouldBeEnabled);
+      } catch (e) {
+        setJackpotEnabled(true); // fallback to enabled
+      }
+    } else {
+      setJackpotEnabled(true); // fallback to enabled
+    }
+  }, [selectedCards.length, betAmount]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [inputCardId, setInputCardId] = useState("");
   const [checkResult, setCheckResult] = useState<null | {
-    status: "win" | "lose" | "not_in_game" | "already_checked" | "already_won";
+    status:
+      | "win"
+      | "lose"
+      | "not_in_game"
+      | "already_checked"
+      | "already_won"
+      | "not_now";
     card?: BingoCard;
   }>(null);
 
@@ -387,6 +423,12 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         message: "NO BINGO - CARD LOCKED",
         toast: () => toast.error("No Bingo - Card locked"),
       },
+      not_now: {
+        bg: "bg-orange-100",
+        text: "text-orange-800",
+        message: "አልፎታል።",
+        toast: () => toast("አልፎታል።"),
+      },
     };
 
     return configs[status as keyof typeof configs] || configs.lose;
@@ -397,50 +439,125 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     if (isNaN(cardId)) {
       toast.error("Please enter a valid card number");
       setCheckResult({ status: "lose" });
+      setJackpotResult(null);
       return;
     }
 
     const card = currentCardSet.find((c) => c.id === cardId);
     if (!card) {
       toast.error("Card not found");
-      playAudio("/audio6/cardnotfound.mp3");
+      playAudio("/Gold/cardnotfound.mp3");
       setCheckResult({ status: "lose" });
+      setJackpotResult(null);
       return;
     }
 
     const isInGame = selectedCards.some((c) => c.id === cardId);
     if (!isInGame) {
       setCheckResult({ status: "not_in_game", card });
-      playAudio(`/audio6/cardnotfound.mp3`);
+      setJackpotResult(null);
+      playAudio(`/Gold/cardnotfound.mp3`);
       getStatusConfig("not_in_game").toast();
       return;
     }
 
     if (winners.includes(cardId)) {
       setCheckResult({ status: "already_won", card });
+      setJackpotResult(null);
       getStatusConfig("already_won").toast();
       return;
     }
 
     if (blacklistedCards.includes(cardId)) {
       setCheckResult({ status: "already_checked", card });
+      setJackpotResult(null);
       getStatusConfig("already_checked").toast();
       return;
     }
 
     const result = checkWinningPattern(card, calledNumbers, gamePattern);
-    const isWinner = result.isWinner;
-    const status = isWinner ? "win" : "lose";
+    let isWinner = result.isWinner;
+    let status = isWinner ? "win" : "lose";
+
+    // Only allow win if currentNumber is in the winning pattern
+    if (isWinner) {
+      const columns = ["B", "I", "N", "G", "O"];
+      const winningNumbers = result.winningCells
+        .map(({ row, col }) => card[columns[col]][row])
+        .filter((num) => num !== 0); // Exclude free space
+      if (!winningNumbers.includes(currentNumber!)) {
+        isWinner = false;
+        status = "not_now";
+      }
+    }
+
+    // Jackpot logic
+    let jackpotInfo = { isJackpot: false, jackpotAmount: 0 };
+    if (isWinner) {
+      // Find the player's winning number (the last called number in the winning cells)
+      const columns = ["B", "I", "N", "G", "O"];
+      const winningNumbers = result.winningCells
+        .map(({ row, col }) => card[columns[col]][row])
+        .filter((num) => num !== 0);
+      const playerWinningNumber = [...calledNumbers]
+        .reverse()
+        .find((num) => winningNumbers.includes(num));
+
+      // Read jackpot settings
+      const jackpotSettingsRaw = localStorage.getItem("jackpotSettings");
+      if (jackpotSettingsRaw) {
+        try {
+          const jackpotSettings = JSON.parse(jackpotSettingsRaw);
+          const dailyNumber = Number(jackpotSettings.dailyNumber);
+          const matchGap = Number(jackpotSettings.matchGap);
+          const jackpotStartingAmount = Number(
+            jackpotSettings.jackpotStartingAmount ||
+              jackpotSettings.jackpotAmount
+          );
+          const jackpotPercent = Number(jackpotSettings.jackpotPercent);
+          const jackpotEnabled = jackpotSettings.jackpotEnabled;
+
+          // Calculate total bet amount for this game
+          const totalBetAmount = selectedCards.length * (betAmount || 0);
+
+          // Check if jackpot should be active (total bet >= minimum required)
+          const isJackpotActive =
+            jackpotEnabled === "On" && totalBetAmount >= jackpotStartingAmount;
+
+          // Check if winning number matches daily number within gap
+          const isNumberMatch =
+            typeof playerWinningNumber === "number" &&
+            Math.abs(playerWinningNumber - dailyNumber) <= matchGap;
+
+          if (isJackpotActive && isNumberMatch) {
+            // Calculate jackpot amount as percentage of total bet
+            const calculatedJackpotAmount = Math.round(
+              (totalBetAmount * jackpotPercent) / 100
+            );
+            jackpotInfo = {
+              isJackpot: true,
+              jackpotAmount: calculatedJackpotAmount,
+            };
+          }
+        } catch (e) {
+          // ignore parse error
+        }
+      }
+    }
 
     if (isWinner) {
-      playAudio(`/Dalol/win.mp3`);
+      playAudio(`/Gold/win.mp3`);
       setWinners((prev) => {
         const updated = [...prev, cardId];
         localStorage.setItem("winners", JSON.stringify(updated));
         return updated;
       });
+      //alfotal
+    } else if (status === "not_now") {
+      // Do not blacklist or mark as win, just show message
+      playAudio(`/Gold/lose.mp3`);
     } else {
-      playAudio(`/Dalol/lose.mp3`);
+      playAudio(`/Gold/lose.mp3`);
       setBlacklistedCards((prev) => {
         const updated = [...prev, cardId];
         localStorage.setItem("blacklist", JSON.stringify(updated));
@@ -448,13 +565,15 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       });
     }
 
-    setCheckResult({ status, card });
+    setCheckResult({ status: status as (typeof checkResult)["status"], card });
+    setJackpotResult(jackpotInfo);
     getStatusConfig(status).toast();
   };
 
   const resetModal = () => {
     setInputCardId("");
     setCheckResult(null);
+    setJackpotResult(null);
   };
 
   const renderCardGrid = (cardId: number) => {
@@ -519,7 +638,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       setAutoCall(false);
     }
     setisReseting(true);
-    playAudio("/Dalol/bingo_ball.mp3");
+    playAudio("/Gold/bingo_ball.mp3");
     timeoutRef.current = setTimeout(() => {
       setisReseting(false);
     }, 10000);
@@ -630,6 +749,14 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                   )}
                 >
                   {getStatusConfig(checkResult.status).message}
+                  {/* Jackpot message */}
+                  {checkResult.status === "win" && jackpotResult?.isJackpot && (
+                    <div className="mt-2 text-2xl text-yellow-400 font-extrabold">
+                      🎉 JACKPOT WINNER!
+                      <br />
+                      Jackpot: {jackpotResult.jackpotAmount} Birr
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -669,8 +796,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             currentNumber={currentNumber}
           />
         </div>
-        <div className="flex flex-col w-full justify-center items-start gap-4  ">
-          <div className="tot-bet-card ml-4">
+        <div className="flex flex-col w-full justify-center items-start gap-4">
+          {/* <div className="tot-bet-card ml-4">
             <h2 className="tot-bet-title font-potta-one text-2xl">
               Bonus Type
             </h2>
@@ -685,6 +812,49 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             <div className="tot-bet-display-wrapper">
               <div className="tot-bet-display">{bonusAmount} birr</div>
             </div>
+          </div> */}
+          <div className="relative group">
+            <Image
+              src="/jackpot.png"
+              className={`object-cover ${
+                jackpotEnabled ? "opacity-100" : "opacity-30"
+              }`}
+              alt="jackpot"
+              width={200}
+              height={200}
+            />
+            {!jackpotEnabled && (
+              <>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                    INACTIVE
+                  </div>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {(() => {
+                    const jackpotSettingsRaw =
+                      localStorage.getItem("jackpotSettings");
+                    if (jackpotSettingsRaw) {
+                      try {
+                        const jackpotSettings = JSON.parse(jackpotSettingsRaw);
+                        const jackpotStartingAmount = Number(
+                          jackpotSettings.jackpotStartingAmount ||
+                            jackpotSettings.jackpotAmount
+                        );
+                        const totalBetAmount =
+                          selectedCards.length * (betAmount || 0);
+                        return `Need ${
+                          jackpotStartingAmount - totalBetAmount
+                        } more bet to activate`;
+                      } catch (e) {
+                        return "Jackpot disabled";
+                      }
+                    }
+                    return "Jackpot disabled";
+                  })()}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="flex w-full justify-around px items-center gap-4 mb-22 ">
