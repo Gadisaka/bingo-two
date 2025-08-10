@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -38,7 +39,13 @@ const agentSchema = z.object({
     .string()
     .length(10, "Phone must be exactly 10 digits")
     .regex(/^\d+$/, "Phone must contain only numbers"),
-  wallet: z.number().min(0, "Wallet cannot be negative"),
+  walletBalance: z.number().min(0, "Wallet cannot be negative"),
+  adminPercentage: z
+    .number()
+    .min(0)
+    .max(100, "Percentage must be between 0 and 100"),
+  autoLock: z.boolean(),
+  debtBalance: z.number().min(0, "Debt cannot be negative"),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
@@ -60,7 +67,10 @@ export default function EditAgentModal({
     defaultValues: {
       name: agent.name,
       phone: agent.phone,
-      wallet: agent.wallet,
+      walletBalance: agent.walletBalance || 0,
+      adminPercentage: agent.adminPercentage || 20,
+      autoLock: agent.autoLock ?? true,
+      debtBalance: agent.debtBalance || 0,
       status: agent.status,
     },
   });
@@ -123,7 +133,7 @@ export default function EditAgentModal({
             />
             <FormField
               control={form.control}
-              name="wallet"
+              name="walletBalance"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Wallet Balance</FormLabel>
@@ -134,11 +144,75 @@ export default function EditAgentModal({
                       placeholder="Wallet amount"
                       {...field}
                       onChange={(e) =>
-                        field.onChange(parseFloat(e.target.value))
+                        field.onChange(parseFloat(e.target.value) || 0)
                       }
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="debtBalance"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Debt Balance</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Debt amount"
+                      {...field}
+                      onChange={(e) =>
+                        field.onChange(parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="adminPercentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Admin Percentage (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="20"
+                      {...field}
+                      onChange={(e) =>
+                        field.onChange(parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="autoLock"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Auto Lock</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      Automatically lock when wallet is insufficient
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

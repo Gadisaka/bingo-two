@@ -71,6 +71,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     jackpotAmount: number;
   }>(null);
   const [jackpotEnabled, setJackpotEnabled] = useState(true);
+  const [audioFolder, setAudioFolder] = useState<string>("Gold");
 
   const currentCardSet = CARD_SETS[selectedCardSetId];
 
@@ -83,7 +84,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   // Add at the top of your GameBoard component, after `useRef`:
   const audioCache = useRef<Record<string, HTMLAudioElement>>({});
 
-  // Preload all Gold audios once on mount
+  // Preload audios (Gold and Gold2) once on mount
   useEffect(() => {
     const preloadAudios = () => {
       const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
@@ -100,61 +101,77 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "start",
         "stop",
       ];
-      numbers.forEach((num) => {
-        const key = `Gold/${num}`;
-        if (!audioCache.current[key]) {
-          const audio = new Audio(`/Gold/${num}.mp3`);
-          audio.preload = "auto";
-          audioCache.current[key] = audio;
-        }
-      });
-      extraFiles.forEach((file) => {
-        const key = `Gold/${file}`;
-        if (!audioCache.current[key]) {
-          const audio = new Audio(`/Gold/${file}.mp3`);
-          audio.preload = "auto";
-          audioCache.current[key] = audio;
-        }
+      ["Gold", "Gold2"].forEach((folder) => {
+        numbers.forEach((num) => {
+          const key = `${folder}/${num}`;
+          if (!audioCache.current[key]) {
+            const audio = new Audio(`/${folder}/${num}.mp3`);
+            audio.preload = "auto";
+            audioCache.current[key] = audio;
+          }
+        });
+        extraFiles.forEach((file) => {
+          const key = `${folder}/${file}`;
+          if (!audioCache.current[key]) {
+            const audio = new Audio(`/${folder}/${file}.mp3`);
+            audio.preload = "auto";
+            audioCache.current[key] = audio;
+          }
+        });
       });
     };
     preloadAudios();
   }, []);
 
-  // Updated playAudioForNumber function using Gold only
-  const playAudioForNumber = useCallback((num: number) => {
-    // Check if audio is muted
-    const isMuted = localStorage.getItem("audioMuted") === "true";
-    if (isMuted) return;
+  // Updated playAudioForNumber function using selected folder
+  const playAudioForNumber = useCallback(
+    (num: number) => {
+      // Check if audio is muted
+      const isMuted = localStorage.getItem("audioMuted") === "true";
+      if (isMuted) return;
 
-    const key = `Gold/${num}`;
-    const audio = audioCache.current[key];
-    if (audio) {
-      audio.currentTime = 0;
-      audio.play().catch((err) => {
+      const key = `${audioFolder}/${num}`;
+      let audio = audioCache.current[key];
+      if (!audio) {
+        const created = new Audio(`/${audioFolder}/${num}.mp3`);
+        created.preload = "auto";
+        audioCache.current[key] = created;
+        audio = created;
+      }
+      try {
+        audio.currentTime = 0;
+        audio.play();
+      } catch (err) {
         console.warn("Playback failed for", key, err);
-      });
-    } else {
-      console.warn("Audio not found in cache:", key);
-    }
-  }, []);
+      }
+    },
+    [audioFolder]
+  );
 
-  const playAudio = useCallback((path: string) => {
-    // Check if audio is muted
-    const isMuted = localStorage.getItem("audioMuted") === "true";
-    if (isMuted) return;
+  const playAudio = useCallback(
+    (path: string) => {
+      // Check if audio is muted
+      const isMuted = localStorage.getItem("audioMuted") === "true";
+      if (isMuted) return;
 
-    // Always use Gold folder for all audio
-    let file = path.split("/").pop() || "";
-    if (!file.endsWith(".mp3")) file += ".mp3";
-    const key = `Gold/${file.replace(".mp3", "")}`;
-    const audio = audioCache.current[key] || new Audio(`/Gold/${file}`);
-    try {
-      audio.currentTime = 0;
-      audio.play();
-    } catch (err) {
-      console.warn("Audio playback failed for", key, err);
-    }
-  }, []);
+      // Use selected folder for all audio
+      let file = path.split("/").pop() || "";
+      if (!file.endsWith(".mp3")) file += ".mp3";
+      const key = `${audioFolder}/${file.replace(".mp3", "")}`;
+      let audio = audioCache.current[key];
+      if (!audio) {
+        audio = new Audio(`/${audioFolder}/${file}`);
+        audioCache.current[key] = audio;
+      }
+      try {
+        audio.currentTime = 0;
+        audio.play();
+      } catch (err) {
+        console.warn("Audio playback failed for", key, err);
+      }
+    },
+    [audioFolder]
+  );
 
   const callNextNumber = useCallback(() => {
     const remaining = allNumbers.filter((n) => !calledNumbers.includes(n));
@@ -255,13 +272,13 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
   const toggleAutoCall = useCallback(() => {
     if (autoCall) {
-      playAudio("/Gold/stop.mp3");
+      playAudio("stop.mp3");
     } else {
-      playAudio("/Gold/start.mp3");
+      playAudio("start.mp3");
     }
     setAutoCall((prev) => !prev);
     localStorage.setItem("autoCall", String(!autoCall));
-  }, [autoCall]);
+  }, [autoCall, playAudio]);
 
   const updateCallSpeed = useCallback((speed: number) => {
     setCallSpeed(speed);
@@ -278,6 +295,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         const blacklist = localStorage.getItem("blacklist");
         const winnersData = localStorage.getItem("winners");
         const auto = localStorage.getItem("autoCall");
+        const savedAudioFolder = localStorage.getItem("audioFolder");
 
         if (savedSetup) {
           const {
@@ -313,6 +331,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         if (lang) {
           // This line is removed as per the edit hint
         }
+        if (savedAudioFolder) setAudioFolder(savedAudioFolder);
         if (blacklist) setBlacklistedCards(JSON.parse(blacklist));
         if (winnersData) setWinners(JSON.parse(winnersData));
         if (auto) setAutoCall(auto === "true");
@@ -446,7 +465,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     const card = currentCardSet.find((c) => c.id === cardId);
     if (!card) {
       toast.error("Card not found");
-      playAudio("/Gold/cardnotfound.mp3");
+      playAudio("cardnotfound.mp3");
       setCheckResult({ status: "lose" });
       setJackpotResult(null);
       return;
@@ -456,7 +475,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     if (!isInGame) {
       setCheckResult({ status: "not_in_game", card });
       setJackpotResult(null);
-      playAudio(`/Gold/cardnotfound.mp3`);
+      playAudio(`cardnotfound.mp3`);
       getStatusConfig("not_in_game").toast();
       return;
     }
@@ -546,7 +565,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     }
 
     if (isWinner) {
-      playAudio(`/Gold/win.mp3`);
+      playAudio(`win.mp3`);
       setWinners((prev) => {
         const updated = [...prev, cardId];
         localStorage.setItem("winners", JSON.stringify(updated));
@@ -555,9 +574,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       //alfotal
     } else if (status === "not_now") {
       // Do not blacklist or mark as win, just show message
-      playAudio(`/Gold/lose.mp3`);
+      playAudio(`lose.mp3`);
     } else {
-      playAudio(`/Gold/lose.mp3`);
+      playAudio(`lose.mp3`);
       setBlacklistedCards((prev) => {
         const updated = [...prev, cardId];
         localStorage.setItem("blacklist", JSON.stringify(updated));
@@ -638,7 +657,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       setAutoCall(false);
     }
     setisReseting(true);
-    playAudio("/Gold/bingo_ball.mp3");
+    playAudio("bingo_ball.mp3");
     timeoutRef.current = setTimeout(() => {
       setisReseting(false);
     }, 10000);
@@ -781,7 +800,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           selectedCardSetId={selectedCardSetId}
         /> */}
 
-        <div className="hidden sm:flex w-full mt-4 justify-around items-start gap-4 overflow-auto">
+        <div className="hidden sm:flex w-full h mt-4 justify-around items-start gap-4 ">
           <div className="h-full w-[250px] flex items-center justify-center">
             <NumberDisplay
               previousNumbers={[...calledNumbers].slice(-4).reverse().slice(1)}
@@ -796,7 +815,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             currentNumber={currentNumber}
           />
         </div>
-        <div className="flex flex-col w-full justify-center items-start gap-4">
+        <div className="flex w-full justify-start h-fit  items-start">
           {/* <div className="tot-bet-card ml-4">
             <h2 className="tot-bet-title font-potta-one text-2xl">
               Bonus Type

@@ -117,7 +117,7 @@ export const NumberBoard = ({
             >
               <div
                 className={cn(
-                  "relative w-[50px] h-[50px] bg-gray-200 flex items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
+                  "relative w-[50px] h-[50px] bg-gray-200 flex text-4xl items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
                   isCalled
                     ? "ring-4 ring-orange-500 text-black shadow-lg"
                     : " text-gray-500 ",
@@ -130,7 +130,7 @@ export const NumberBoard = ({
                     isCalled ? "bg-black/10" : "bg-white/20 blur-sm"
                   )}
                 />
-                <span className="relative stroke-white">{num}</span>
+                <span className="relative stroke-white ">{num}</span>
               </div>
             </div>
           );

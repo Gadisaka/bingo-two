@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Gamepad2, CreditCard, User, UserCog, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import WalletDebtCard from "@/components/WalletDebtCard";
 
 type Metrics = {
   games: {
@@ -14,6 +15,28 @@ type Metrics = {
     today: number;
     weekly: number;
     total: number;
+  };
+  totalBet: {
+    today: number;
+    weekly: number;
+    total: number;
+  };
+  commissions: {
+    cashier: {
+      today: number;
+      weekly: number;
+      total: number;
+    };
+    agent: {
+      today: number;
+      weekly: number;
+      total: number;
+    };
+    admin: {
+      today: number;
+      weekly: number;
+      total: number;
+    };
   };
   users: {
     admins: number;
@@ -30,14 +53,23 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchMetrics() {
       try {
+        console.log("Fetching dashboard data...");
         const res = await fetch("/api/dashboard", { cache: "no-store" });
+        console.log("Response status:", res.status);
+
         if (!res.ok) {
-          throw new Error("Failed to fetch dashboard data");
+          const errorText = await res.text();
+          console.error("Dashboard API error:", errorText);
+          throw new Error(
+            `Failed to fetch dashboard data: ${res.status} ${errorText}`
+          );
         }
+
         const data = await res.json();
+        console.log("Dashboard data received:", data);
         setMetrics(data);
       } catch (err: any) {
-        // @ts-ignore - Error type handling
+        console.error("Error fetching metrics:", err);
         setError(err.message || "Something went wrong");
       } finally {
         setLoading(false);
@@ -95,14 +127,26 @@ export default function AdminDashboardPage() {
         isCurrency
       />
       <MetricCard
-        title="Weekly Revenue"
-        value={metrics.revenue.weekly}
+        title="Total Bet (All)"
+        value={metrics.totalBet.total}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
       <MetricCard
-        title="Total Revenue"
-        value={metrics.revenue.total}
+        title="Cashier Commission (All)"
+        value={metrics.commissions.cashier.total}
+        icon={<CreditCard className="h-4 w-4" />}
+        isCurrency
+      />
+      <MetricCard
+        title="Agent Commission (All)"
+        value={metrics.commissions.agent.total}
+        icon={<CreditCard className="h-4 w-4" />}
+        isCurrency
+      />
+      <MetricCard
+        title="Admin Commission (All)"
+        value={metrics.commissions.admin.total}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />

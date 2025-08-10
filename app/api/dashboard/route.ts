@@ -1,19 +1,15 @@
 // app/api/dashboard/route.ts
-import { NextResponse, NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 import { verifyJwt } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  // Get JWT token from cookie
   const token = req.cookies.get("auth_token")?.value;
-
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Verify token and get user info
   const payload = verifyJwt(token);
-
   if (!payload || typeof payload !== "object" || !payload.id || !payload.role) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -21,185 +17,577 @@ export async function GET(req: NextRequest) {
   const userId = payload.id as number;
   const role = (payload.role as string).toUpperCase();
 
-  let gamesToday = 0;
-  let gamesWeekly = 0;
-  let gamesTotal = 0;
-
-  let revenueToday = 0;
-  let revenueWeekly = 0;
-  let revenueTotal = 0;
-
-  let adminsCount = 0;
-  let agentsCount = 0;
-  let cashiersCount = 0;
-
-  // Date helpers
+  // Calculate date ranges
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfWeek = new Date(startOfToday);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+  const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  if (role === "ADMIN") {
-    // Admin sees all reports
+  try {
+    if (role === "ADMIN") {
+      // Admin dashboard - show all data
+      let revenueTotal = 0;
+      let revenueToday = 0;
+      let revenueWeekly = 0;
+      let totalBetAll = 0;
+      let totalBetToday = 0;
+      let totalBetWeekly = 0;
+      let agentCommissionAll = 0;
+      let agentCommissionToday = 0;
+      let agentCommissionWeekly = 0;
+      let adminCommissionAll = 0;
+      let adminCommissionToday = 0;
+      let adminCommissionWeekly = 0;
 
-    gamesTotal = await prisma.report.count();
+      try {
+        const aggAll = await prisma.report.aggregate({
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueTotal = aggAll._sum.revenue || 0;
+        totalBetAll = aggAll._sum.totalBet || 0;
+        agentCommissionAll = aggAll._sum.agentCommission || 0;
+        adminCommissionAll = aggAll._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating all reports:", error);
+        // Provide default values if aggregation fails
+        revenueTotal = 0;
+        totalBetAll = 0;
+        agentCommissionAll = 0;
+        adminCommissionAll = 0;
+      }
 
-    gamesToday = await prisma.report.count({
-      where: { date: { gte: startOfToday } },
-    });
+      try {
+        const aggToday = await prisma.report.aggregate({
+          where: { date: { gte: startOfToday } },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueToday = aggToday._sum.revenue || 0;
+        totalBetToday = aggToday._sum.totalBet || 0;
+        agentCommissionToday = aggToday._sum.agentCommission || 0;
+        adminCommissionToday = aggToday._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating today reports:", error);
+        // Provide default values if aggregation fails
+        revenueToday = 0;
+        totalBetToday = 0;
+        agentCommissionToday = 0;
+        adminCommissionToday = 0;
+      }
 
-    gamesWeekly = await prisma.report.count({
-      where: { date: { gte: startOfWeek } },
-    });
+      try {
+        const aggWeek = await prisma.report.aggregate({
+          where: { date: { gte: startOfWeek } },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueWeekly = aggWeek._sum.revenue || 0;
+        totalBetWeekly = aggWeek._sum.totalBet || 0;
+        agentCommissionWeekly = aggWeek._sum.agentCommission || 0;
+        adminCommissionWeekly = aggWeek._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating weekly reports:", error);
+        // Provide default values if aggregation fails
+        revenueWeekly = 0;
+        totalBetWeekly = 0;
+        agentCommissionWeekly = 0;
+        adminCommissionWeekly = 0;
+      }
 
-    const revenueAggregates = await prisma.report.aggregate({
-      _sum: { revenue: true },
-    });
-    revenueTotal = revenueAggregates._sum.revenue || 0;
+      // Get counts for different user types
+      const agentCount = await prisma.agent.count();
+      const adminCount = 1; // There's only one admin (the current user)
+      const cashierCount = await prisma.cashier.count();
 
-    const revenueTodayAgg = await prisma.report.aggregate({
-      where: { date: { gte: startOfToday } },
-      _sum: { revenue: true },
-    });
-    revenueToday = revenueTodayAgg._sum.revenue || 0;
+      // Get game counts
+      const gamesTotal = await prisma.report.count();
+      const gamesToday = await prisma.report.count({
+        where: { date: { gte: startOfToday } },
+      });
+      const gamesWeekly = await prisma.report.count({
+        where: { date: { gte: startOfWeek } },
+      });
 
-    const revenueWeeklyAgg = await prisma.report.aggregate({
-      where: { date: { gte: startOfWeek } },
-      _sum: { revenue: true },
-    });
-    revenueWeekly = revenueWeeklyAgg._sum.revenue || 0;
+      // Get cashier commission data
+      let cashierCommissionAll = 0;
+      let cashierCommissionToday = 0;
+      let cashierCommissionWeekly = 0;
 
-    adminsCount = await prisma.admin.count();
-    agentsCount = await prisma.agent.count();
-    cashiersCount = await prisma.cashier.count();
+      try {
+        const cashierAggAll = await prisma.report.aggregate({
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionAll = cashierAggAll._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating cashier commission:", error);
+        cashierCommissionAll = 0;
+      }
 
-  } else if (role === "AGENT") {
-    // Agent sees reports for own cashiers
+      try {
+        const cashierAggToday = await prisma.report.aggregate({
+          where: { date: { gte: startOfToday } },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionToday = cashierAggToday._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating today cashier commission:", error);
+        cashierCommissionToday = 0;
+      }
 
-    const cashiers = await prisma.cashier.findMany({
-      where: { agentId: userId },
-      select: { id: true },
-    });
+      try {
+        const cashierAggWeek = await prisma.report.aggregate({
+          where: { date: { gte: startOfWeek } },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionWeekly = cashierAggWeek._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating weekly cashier commission:", error);
+        cashierCommissionWeekly = 0;
+      }
 
-    const agent=await prisma.agent.findUnique({where:{id:userId}})
-    const cashierIds = cashiers.map(c => c.id);
+      return NextResponse.json({
+        games: {
+          today: gamesToday,
+          weekly: gamesWeekly,
+          total: gamesTotal,
+        },
+        revenue: {
+          today: revenueToday,
+          weekly: revenueWeekly,
+          total: revenueTotal,
+        },
+        totalBet: {
+          today: totalBetToday,
+          weekly: totalBetWeekly,
+          total: totalBetAll,
+        },
+        commissions: {
+          cashier: {
+            today: cashierCommissionToday,
+            weekly: cashierCommissionWeekly,
+            total: cashierCommissionAll,
+          },
+          agent: {
+            today: agentCommissionToday,
+            weekly: agentCommissionWeekly,
+            total: agentCommissionAll,
+          },
+          admin: {
+            today: adminCommissionToday,
+            weekly: adminCommissionWeekly,
+            total: adminCommissionAll,
+          },
+        },
+        users: {
+          admins: adminCount,
+          agents: agentCount,
+          cashiers: cashierCount,
+        },
+      });
+    } else if (role === "AGENT") {
+      // Agent dashboard - show data for their cashiers only
+      let revenueTotal = 0;
+      let revenueToday = 0;
+      let revenueWeekly = 0;
+      let totalBetAll = 0;
+      let totalBetToday = 0;
+      let totalBetWeekly = 0;
+      let agentCommissionAll = 0;
+      let agentCommissionToday = 0;
+      let agentCommissionWeekly = 0;
+      let adminCommissionAll = 0;
+      let adminCommissionToday = 0;
+      let adminCommissionWeekly = 0;
 
-    gamesTotal = await prisma.report.count({
-      where: { cashierId: { in: cashierIds } },
-    });
+      try {
+        const aggAll = await prisma.report.aggregate({
+          where: {
+            cashier: { agentId: userId },
+          },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueTotal = aggAll._sum.revenue || 0;
+        totalBetAll = aggAll._sum.totalBet || 0;
+        agentCommissionAll = aggAll._sum.agentCommission || 0;
+        adminCommissionAll = aggAll._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating all reports:", error);
+        // Provide default values if aggregation fails
+        revenueTotal = 0;
+        totalBetAll = 0;
+        agentCommissionAll = 0;
+        adminCommissionAll = 0;
+      }
 
-    gamesToday = await prisma.report.count({
-      where: {
-        cashierId: { in: cashierIds },
-        date: { gte: startOfToday },
-      },
-    });
+      try {
+        const aggToday = await prisma.report.aggregate({
+          where: {
+            cashier: { agentId: userId },
+            date: { gte: startOfToday },
+          },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueToday = aggToday._sum.revenue || 0;
+        totalBetToday = aggToday._sum.totalBet || 0;
+        agentCommissionToday = aggToday._sum.agentCommission || 0;
+        adminCommissionToday = aggToday._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating today reports:", error);
+        // Provide default values if aggregation fails
+        revenueToday = 0;
+        totalBetToday = 0;
+        agentCommissionToday = 0;
+        adminCommissionToday = 0;
+      }
 
-    gamesWeekly = await prisma.report.count({
-      where: {
-        cashierId: { in: cashierIds },
-        date: { gte: startOfWeek },
-      },
-    });
+      try {
+        const aggWeek = await prisma.report.aggregate({
+          where: {
+            cashier: { agentId: userId },
+            date: { gte: startOfWeek },
+          },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueWeekly = aggWeek._sum.revenue || 0;
+        totalBetWeekly = aggWeek._sum.totalBet || 0;
+        agentCommissionWeekly = aggWeek._sum.agentCommission || 0;
+        adminCommissionWeekly = aggWeek._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating weekly reports:", error);
+        // Provide default values if aggregation fails
+        revenueWeekly = 0;
+        totalBetWeekly = 0;
+        agentCommissionWeekly = 0;
+        adminCommissionWeekly = 0;
+      }
 
-    const revenueTotalAgg = await prisma.report.aggregate({
-      where: { cashierId: { in: cashierIds } },
-      _sum: { revenue: true },
-    });
-    revenueTotal = revenueTotalAgg._sum.revenue || 0;
+      // Get cashier count for this agent
+      const cashierCount = await prisma.cashier.count({
+        where: { agentId: userId },
+      });
 
-    const revenueTodayAgg = await prisma.report.aggregate({
-      where: {
-        cashierId: { in: cashierIds },
-        date: { gte: startOfToday },
-      },
-      _sum: { revenue: true },
-    });
-    revenueToday = revenueTodayAgg._sum.revenue || 0;
+      // Get game counts for this agent's cashiers
+      const gamesTotal = await prisma.report.count({
+        where: { cashier: { agentId: userId } },
+      });
+      const gamesToday = await prisma.report.count({
+        where: {
+          cashier: { agentId: userId },
+          date: { gte: startOfToday },
+        },
+      });
+      const gamesWeekly = await prisma.report.count({
+        where: {
+          cashier: { agentId: userId },
+          date: { gte: startOfWeek },
+        },
+      });
 
-    const revenueWeeklyAgg = await prisma.report.aggregate({
-      where: {
-        cashierId: { in: cashierIds },
-        date: { gte: startOfWeek },
-      },
-      _sum: { revenue: true },
-    });
-    revenueWeekly = revenueWeeklyAgg._sum.revenue || 0;
+      // Get cashier commission data for this agent's cashiers
+      let cashierCommissionAll = 0;
+      let cashierCommissionToday = 0;
+      let cashierCommissionWeekly = 0;
 
-    adminsCount = 1; // self/admin count can be adjusted
-    agentsCount = agent?.wallet||0;
-    cashiersCount = cashierIds.length;
+      try {
+        const cashierAggAll = await prisma.report.aggregate({
+          where: { cashier: { agentId: userId } },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionAll = cashierAggAll._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating cashier commission:", error);
+        cashierCommissionAll = 0;
+      }
 
-  } else if (role === "CASHIER") {
-    // Cashier sees own reports
+      try {
+        const cashierAggToday = await prisma.report.aggregate({
+          where: {
+            cashier: { agentId: userId },
+            date: { gte: startOfToday },
+          },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionToday = cashierAggToday._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating today cashier commission:", error);
+        cashierCommissionToday = 0;
+      }
 
-    const cashier=await prisma.cashier.findUnique({where:{id:userId}})
-    const agent=await prisma.agent.findUnique({where:{id:cashier?.agentId}})
+      try {
+        const cashierAggWeek = await prisma.report.aggregate({
+          where: {
+            cashier: { agentId: userId },
+            date: { gte: startOfWeek },
+          },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionWeekly = cashierAggWeek._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating weekly cashier commission:", error);
+        cashierCommissionWeekly = 0;
+      }
 
-    gamesTotal = await prisma.report.count({
-      where: { cashierId: userId },
-    });
+      return NextResponse.json({
+        games: {
+          today: gamesToday,
+          weekly: gamesWeekly,
+          total: gamesTotal,
+        },
+        revenue: {
+          today: revenueToday,
+          weekly: revenueWeekly,
+          total: revenueTotal,
+        },
+        totalBet: {
+          today: totalBetToday,
+          weekly: totalBetWeekly,
+          total: totalBetAll,
+        },
+        commissions: {
+          cashier: {
+            today: cashierCommissionToday,
+            weekly: cashierCommissionWeekly,
+            total: cashierCommissionAll,
+          },
+          agent: {
+            today: agentCommissionToday,
+            weekly: agentCommissionWeekly,
+            total: agentCommissionAll,
+          },
+          admin: {
+            today: adminCommissionToday,
+            weekly: adminCommissionWeekly,
+            total: adminCommissionAll,
+          },
+        },
+        users: {
+          cashiers: cashierCount,
+        },
+      });
+    } else if (role === "CASHIER") {
+      // Cashier dashboard - show only their data
+      let revenueTotal = 0;
+      let revenueToday = 0;
+      let revenueWeekly = 0;
+      let totalBetAll = 0;
+      let totalBetToday = 0;
+      let totalBetWeekly = 0;
+      let agentCommissionAll = 0;
+      let agentCommissionToday = 0;
+      let agentCommissionWeekly = 0;
+      let adminCommissionAll = 0;
+      let adminCommissionToday = 0;
+      let adminCommissionWeekly = 0;
 
-    gamesToday = await prisma.report.count({
-      where: {
-        cashierId: userId,
-        date: { gte: startOfToday },
-      },
-    });
+      try {
+        const aggAll = await prisma.report.aggregate({
+          where: { cashierId: userId },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueTotal = aggAll._sum.revenue || 0;
+        totalBetAll = aggAll._sum.totalBet || 0;
+        agentCommissionAll = aggAll._sum.agentCommission || 0;
+        adminCommissionAll = aggAll._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating all reports:", error);
+        // Provide default values if aggregation fails
+        revenueTotal = 0;
+        totalBetAll = 0;
+        agentCommissionAll = 0;
+        adminCommissionAll = 0;
+      }
 
-    gamesWeekly = await prisma.report.count({
-      where: {
-        cashierId: userId,
-        date: { gte: startOfWeek },
-      },
-    });
+      try {
+        const aggToday = await prisma.report.aggregate({
+          where: {
+            cashierId: userId,
+            date: { gte: startOfToday },
+          },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueToday = aggToday._sum.revenue || 0;
+        totalBetToday = aggToday._sum.totalBet || 0;
+        agentCommissionToday = aggToday._sum.agentCommission || 0;
+        adminCommissionToday = aggToday._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating today reports:", error);
+        // Provide default values if aggregation fails
+        revenueToday = 0;
+        totalBetToday = 0;
+        agentCommissionToday = 0;
+        adminCommissionToday = 0;
+      }
 
-    const revenueTotalAgg = await prisma.report.aggregate({
-      where: { cashierId: userId },
-      _sum: { revenue: true },
-    });
-    revenueTotal = revenueTotalAgg._sum.revenue || 0;
+      try {
+        const aggWeek = await prisma.report.aggregate({
+          where: {
+            cashierId: userId,
+            date: { gte: startOfWeek },
+          },
+          _sum: {
+            revenue: true,
+            totalBet: true,
+            agentCommission: true,
+            adminCommission: true,
+          },
+        });
+        revenueWeekly = aggWeek._sum.revenue || 0;
+        totalBetWeekly = aggWeek._sum.totalBet || 0;
+        agentCommissionWeekly = aggWeek._sum.agentCommission || 0;
+        adminCommissionWeekly = aggWeek._sum.adminCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating weekly reports:", error);
+        // Provide default values if aggregation fails
+        revenueWeekly = 0;
+        totalBetWeekly = 0;
+        agentCommissionWeekly = 0;
+        adminCommissionWeekly = 0;
+      }
 
-    const revenueTodayAgg = await prisma.report.aggregate({
-      where: {
-        cashierId: userId,
-        date: { gte: startOfToday },
-      },
-      _sum: { revenue: true },
-    });
-    revenueToday = revenueTodayAgg._sum.revenue || 0;
+      // Get game counts for this cashier
+      const gamesTotal = await prisma.report.count({
+        where: { cashierId: userId },
+      });
+      const gamesToday = await prisma.report.count({
+        where: {
+          cashierId: userId,
+          date: { gte: startOfToday },
+        },
+      });
+      const gamesWeekly = await prisma.report.count({
+        where: {
+          cashierId: userId,
+          date: { gte: startOfWeek },
+        },
+      });
 
-    const revenueWeeklyAgg = await prisma.report.aggregate({
-      where: {
-        cashierId: userId,
-        date: { gte: startOfWeek },
-      },
-      _sum: { revenue: true },
-    });
-    revenueWeekly = revenueWeeklyAgg._sum.revenue || 0;
+      // Get cashier commission data for this cashier
+      let cashierCommissionAll = 0;
+      let cashierCommissionToday = 0;
+      let cashierCommissionWeekly = 0;
 
-    adminsCount = 1;
-    agentsCount = 1;
-    cashiersCount = agent?.wallet||0;
-  } else {
-    return NextResponse.json({ error: "Invalid role" }, { status: 403 });
+      try {
+        const cashierAggAll = await prisma.report.aggregate({
+          where: { cashierId: userId },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionAll = cashierAggAll._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating cashier commission:", error);
+        cashierCommissionAll = 0;
+      }
+
+      try {
+        const cashierAggToday = await prisma.report.aggregate({
+          where: {
+            cashierId: userId,
+            date: { gte: startOfToday },
+          },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionToday = cashierAggToday._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating today cashier commission:", error);
+        cashierCommissionToday = 0;
+      }
+
+      try {
+        const cashierAggWeek = await prisma.report.aggregate({
+          where: {
+            cashierId: userId,
+            date: { gte: startOfWeek },
+          },
+          _sum: { cashierCommission: true },
+        });
+        cashierCommissionWeekly = cashierAggWeek._sum.cashierCommission || 0;
+      } catch (error) {
+        console.error("Error aggregating weekly cashier commission:", error);
+        cashierCommissionWeekly = 0;
+      }
+
+      return NextResponse.json({
+        games: {
+          today: gamesToday,
+          weekly: gamesWeekly,
+          total: gamesTotal,
+        },
+        revenue: {
+          today: revenueToday,
+          weekly: revenueWeekly,
+          total: revenueTotal,
+        },
+        totalBet: {
+          today: totalBetToday,
+          weekly: totalBetWeekly,
+          total: totalBetAll,
+        },
+        commissions: {
+          cashier: {
+            today: cashierCommissionToday,
+            weekly: cashierCommissionWeekly,
+            total: cashierCommissionAll,
+          },
+          agent: {
+            today: agentCommissionToday,
+            weekly: agentCommissionWeekly,
+            total: agentCommissionAll,
+          },
+          admin: {
+            today: adminCommissionToday,
+            weekly: adminCommissionWeekly,
+            total: adminCommissionAll,
+          },
+        },
+      });
+    } else {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch dashboard data" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({
-    games: {
-      today: gamesToday,
-      weekly: gamesWeekly,
-      total: gamesTotal,
-    },
-    revenue: {
-      today: revenueToday,
-      weekly: revenueWeekly,
-      total: revenueTotal,
-    },
-    users: {
-      admins: adminsCount,
-      agents: agentsCount,
-      cashiers: cashiersCount,
-    },
-  });
 }

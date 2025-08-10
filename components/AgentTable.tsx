@@ -1,7 +1,7 @@
 "use client";
 
 // @ts-ignore - Prisma type import issue
-import { Agent } from "@prisma/client";
+import { Agent as PrismaAgent } from "@prisma/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -19,6 +19,15 @@ import { Eye, Key, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ChangePasswordModal from "./ChangePasswordModal";
 import ChangeStatusModal from "./ChangeStatusModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+type Agent = PrismaAgent & {
+  walletBalance?: number;
+  debtBalance?: number;
+  adminPercentage?: number;
+  autoLock?: boolean;
+};
 
 interface AgentTableProps {
   agents: Agent[];
@@ -34,8 +43,11 @@ export default function AgentTable({
   const router = useRouter();
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-
   const [changingPassword, setChangingPassword] = useState(false);
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState(0);
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [topUpAgent, setTopUpAgent] = useState<Agent | null>(null);
 
   const handleViewDetail = (agentId: number) => {
     router.push(`/admin/manage/${agentId}`);
@@ -66,6 +78,31 @@ export default function AgentTable({
     }
   };
 
+  const handleTopUp = async () => {
+    if (!topUpAgent || topUpAmount <= 0) return;
+    setTopUpLoading(true);
+    try {
+      const res = await fetch(`/api/agents/${topUpAgent.id}/topup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: topUpAmount }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        toast.error(error.error || "Failed to top up wallet");
+        return;
+      }
+      toast.success("Wallet topped up successfully");
+      setTopUpModalOpen(false);
+      setTopUpAmount(0);
+      onRefresh();
+    } catch {
+      toast.error("An error occurred while topping up wallet");
+    } finally {
+      setTopUpLoading(false);
+    }
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -75,6 +112,9 @@ export default function AgentTable({
             <TableHead>Name</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Wallet</TableHead>
+            <TableHead>Debt</TableHead>
+            <TableHead>Admin %</TableHead>
+            <TableHead>AutoLock</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created At</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -124,7 +164,12 @@ export default function AgentTable({
                 <TableCell>{agent.id}</TableCell>
                 <TableCell>{agent.name}</TableCell>
                 <TableCell>{agent.phone}</TableCell>
-                <TableCell>${agent.wallet.toFixed(2)}</TableCell>
+                <TableCell>
+                  ${(agent.walletBalance ?? agent.wallet ?? 0).toFixed(2)}
+                </TableCell>
+                <TableCell>${(agent.debtBalance ?? 0).toFixed(2)}</TableCell>
+                <TableCell>{agent.adminPercentage !== undefined ? agent.adminPercentage + '%' : 'N/A'}</TableCell>
+                <TableCell>{agent.autoLock !== undefined ? (agent.autoLock ? 'Yes' : 'No') : 'N/A'}</TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -157,6 +202,17 @@ export default function AgentTable({
                   >
                     <Key className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setTopUpAgent(agent);
+                      setTopUpModalOpen(true);
+                    }}
+                    aria-label="Top up wallet"
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))
@@ -165,16 +221,59 @@ export default function AgentTable({
       </Table>
 
       {selectedAgent && (
-        <>
-          <ChangePasswordModal
-            open={passwordModalOpen}
-            onClose={() => setPasswordModalOpen(false)}
-            agent={selectedAgent}
-            onSuccess={onRefresh}
-            onChangePassword={handleChangePassword}
-            loading={changingPassword}
-          />
-        </>
+        <ChangePasswordModal
+          open={passwordModalOpen}
+          onClose={() => setPasswordModalOpen(false)}
+          agent={selectedAgent}
+          onSuccess={onRefresh}
+          onChangePassword={handleChangePassword}
+          loading={changingPassword}
+        />
+      )}
+
+      {topUpAgent && (
+        <Dialog open={topUpModalOpen} onOpenChange={setTopUpModalOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Top Up Wallet</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <div className="font-medium mb-1">Agent: {topUpAgent.name}</div>
+                <div className="text-sm text-muted-foreground mb-2">
+                  Current Balance: ${(topUpAgent.walletBalance ?? topUpAgent.wallet ?? 0).toFixed(2)}
+                </div>
+                <Input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(Number(e.target.value))}
+                  placeholder="Enter amount"
+                  disabled={topUpLoading}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setTopUpModalOpen(false)}
+                  disabled={topUpLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleTopUp}
+                  disabled={topUpAmount <= 0 || topUpLoading}
+                >
+                  {topUpLoading ? <span className="animate-spin mr-2">⏳</span> : null}
+                  Top Up
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

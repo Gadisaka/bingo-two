@@ -32,12 +32,37 @@ export default function ReportsPage() {
       }).toString();
 
       const res = await fetch(`/api/reports?${query}`);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Reports API error:", res.status, errorText);
+        toast.error(`Failed to fetch reports: ${res.status}`);
+        setReports([]);
+        setTotalPages(1);
+        setCurrentPage(1);
+        return;
+      }
+
       const data = await res.json();
-      setReports(data.reports);
-      setTotalPages(data.pagination.totalPages);
-      setCurrentPage(data.pagination.page);
+      console.log("Reports data received:", data);
+      
+      if (data.reports && Array.isArray(data.reports)) {
+        setReports(data.reports);
+        setTotalPages(data.pagination?.totalPages || 1);
+        setCurrentPage(data.pagination?.page || 1);
+      } else {
+        console.error("Invalid reports data:", data);
+        toast.error("Invalid reports data received");
+        setReports([]);
+        setTotalPages(1);
+        setCurrentPage(1);
+      }
     } catch (err) {
+      console.error("Error fetching reports:", err);
       toast.error("Failed to fetch reports");
+      setReports([]);
+      setTotalPages(1);
+      setCurrentPage(1);
     } finally {
       setLoading(false);
     }

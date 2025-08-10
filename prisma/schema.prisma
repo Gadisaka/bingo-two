@@ -5,53 +5,94 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model Admin {
-  id        Int      @id @default(autoincrement())
-  phone     String   @unique
-  password  String
-  agents    Agent[]
-  createdAt DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  phone         String   @unique
+  password      String
+  walletBalance Float    @default(0)
+  createdAt     DateTime @default(now())
+  agents        Agent[]
+
+  @@index([phone])
 }
 
 model Agent {
-  id        Int       @id @default(autoincrement())
-  phone     String    @unique
-  name      String
-  password  String
-  wallet    Float     @default(0)
-  status    Status    @default(ACTIVE)
-  adminId   Int
-  admin     Admin     @relation(fields: [adminId], references: [id])
-  cashiers  Cashier[]
-  createdAt DateTime  @default(now())
+  id              Int       @id @default(autoincrement())
+  phone           String    @unique
+  name            String
+  password        String
+  walletBalance   Float     @default(0)
+  debtBalance     Float     @default(0)
+  adminPercentage Float     @default(20)
+  autoLock        Boolean   @default(true)
+  status          Status    @default(ACTIVE)
+  adminId         Int
+  createdAt       DateTime  @default(now())
+  admin           Admin     @relation(fields: [adminId], references: [id])
+  cashiers        Cashier[]
+
+  @@index([phone])
+  @@index([adminId])
+  @@index([status])
 }
 
 model Cashier {
-  id        Int       @id @default(autoincrement())
-  phone     String    @unique
-  name      String
-  password  String
-  status    Status    @default(ACTIVE)
-  agentId   Int
-  agent     Agent     @relation(fields: [agentId], references: [id])
-  reports   Report[]
-  createdAt DateTime  @default(now())
+  id              Int           @id @default(autoincrement())
+  phone           String        @unique
+  name            String
+  password        String
+  walletBalance   Float         @default(0)
+  debtBalance     Float         @default(0)
+  agentPercentage Float         @default(0)
+  autoLock        Boolean       @default(true)
+  status          Status        @default(ACTIVE)
+  agentId         Int
+  createdAt       DateTime      @default(now())
+  agent           Agent         @relation(fields: [agentId], references: [id])
+  reports         Report[]
+  winCutTables    WinCutTable[]
+
+  @@index([phone])
+  @@index([agentId])
+  @@index([status])
+}
+
+model WinCutTable {
+  id             Int      @id @default(autoincrement())
+  minCards       Int
+  maxCards       Int
+  percent5to30   Float
+  percentAbove30 Float
+  cashierId      Int
+  createdAt      DateTime @default(now())
+  cashier        Cashier  @relation(fields: [cashierId], references: [id], onDelete: Cascade)
+
+  @@unique([cashierId, minCards, maxCards])
+  @@index([cashierId])
 }
 
 model Report {
-  id                Int       @id @default(autoincrement())
-  totalCall         Int
-  registeredNumbers Int
-  revenue           Float
-  betAmount         Float
-  date              DateTime
-  status            Status    @default(ACTIVE)
-  cashierId         Int
-  cashier           Cashier   @relation(fields: [cashierId], references: [id])
-  createdAt         DateTime  @default(now())
+  id                   Int      @id @default(autoincrement())
+  totalCall            Int
+  registeredNumbers    Int
+  revenue              Float
+  betAmount            Float
+  date                 DateTime
+  status               Status   @default(ACTIVE)
+  cashierId            Int
+  createdAt            DateTime @default(now())
+  adminCommission      Float    @default(0)
+  agentCommission      Float    @default(0)
+  cashierCommission    Float    @default(0)
+  appliedWinCutPercent Float    @default(0)
+  totalBet             Float    @default(0)
+  cashier              Cashier  @relation(fields: [cashierId], references: [id])
+
+  @@index([cashierId])
+  @@index([date])
+  @@index([status])
 }
 
 enum Status {

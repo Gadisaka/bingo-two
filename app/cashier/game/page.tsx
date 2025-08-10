@@ -4,18 +4,23 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import GameBoard from "@/components/game/GameBoard";
 import GameSetUp from "@/components/game/GameSetUp";
 import { toast } from "sonner";
-import { LoaderPinwheelIcon, Wallet } from "lucide-react";
+import { LoaderPinwheelIcon, Wallet, AlertTriangle } from "lucide-react";
 import { useGameStatusStore } from "@/lib/stores/gameStatusStore";
 
 const LOCAL_STORAGE_KEY = "gameStatus";
 const WALLET_POLL_INTERVAL_MS = 30000; // 30 seconds
 
+interface WalletData {
+  wallet: number;
+  debtBalance?: number;
+}
+
 const GamePage = () => {
   const [gameStatus, setGameStatus] = useState<"setup" | "ready">("setup");
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [loadingWallet, setLoadingWallet] = useState(true);
 
-  const walletBalanceRef = useRef<number | null>(null);
+  const walletDataRef = useRef<WalletData | null>(null);
 
   useEffect(() => {
     const storedStatus = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -33,14 +38,17 @@ const GamePage = () => {
       const res = await fetch("/api/dashboard/wallet", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch wallet");
       const data = await res.json();
-      if (walletBalanceRef.current !== data.wallet) {
-        walletBalanceRef.current = data.wallet;
-        setWalletBalance(data.wallet);
+      if (
+        walletDataRef.current?.wallet !== data.wallet ||
+        walletDataRef.current?.debtBalance !== data.debtBalance
+      ) {
+        walletDataRef.current = data;
+        setWalletData(data);
       }
     } catch (error) {
       toast.error("Failed to load wallet balance");
-      walletBalanceRef.current = null;
-      setWalletBalance(null);
+      walletDataRef.current = null;
+      setWalletData(null);
     } finally {
       setLoadingWallet(false);
     }
@@ -63,7 +71,7 @@ const GamePage = () => {
     setCurrentGameStatus(status);
   };
 
-  if (walletBalance !== null && walletBalance <= 0) {
+  if (walletData !== null && walletData.wallet <= 0) {
     return (
       <div className="flex flex-col justify-center items-center px-6">
         <div className="max-w-md w-full bg-white/80 rounded-xl shadow-lg p-8 text-center">
@@ -73,6 +81,11 @@ const GamePage = () => {
           </h2>
           <p className="text-gray-600 mb-6">
             Oops! You don't have enough balance to play the game.
+            {walletData.debtBalance && walletData.debtBalance > 0 && (
+              <span className="block mt-2 text-red-600 font-semibold">
+                Current Debt: ${walletData.debtBalance.toFixed(2)}
+              </span>
+            )}
           </p>
           <button
             onClick={fetchWallet}
@@ -89,6 +102,18 @@ const GamePage = () => {
 
   return (
     <div className="">
+      {/* {walletData && walletData.debtBalance && walletData.debtBalance > 0 && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            <span className="text-yellow-800 font-medium">
+              You have an outstanding debt of $
+              {walletData.debtBalance.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )} */}
+
       {gameStatus === "setup" ? (
         <GameSetUp
           onStart={() => {

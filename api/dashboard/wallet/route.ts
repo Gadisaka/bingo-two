@@ -19,28 +19,25 @@ export async function GET(req: NextRequest) {
 
   try {
     if (role === "ADMIN") {
-      // For Admin, you can return total wallet value or 0
-      // Here, let's just return 0 or you can customize logic
+      // Admin doesn't have a wallet, they only collect commissions
       return NextResponse.json({ wallet: 0 });
     }
 
     if (role === "AGENT") {
       const agent = await prisma.agent.findUnique({
         where: { id: userId },
-        select: { wallet: true },
+        select: { walletBalance: true },
       });
       if (!agent) {
         return NextResponse.json({ error: "Agent not found" }, { status: 404 });
       }
-      return NextResponse.json({ wallet: agent.wallet || 0 });
+      return NextResponse.json({ wallet: agent.walletBalance || 0 });
     }
 
     if (role === "CASHIER") {
       const cashier = await prisma.cashier.findUnique({
         where: { id: userId },
-      });
-      const agent = await prisma.agent.findUnique({
-        where: { id: cashier?.agentId },
+        select: { walletBalance: true },
       });
 
       if (!cashier) {
@@ -49,7 +46,7 @@ export async function GET(req: NextRequest) {
           { status: 404 }
         );
       }
-      return NextResponse.json({ wallet: agent?.wallet || 0 });
+      return NextResponse.json({ wallet: cashier.walletBalance || 0 });
     }
 
     return NextResponse.json({ error: "Invalid role" }, { status: 403 });

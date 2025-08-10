@@ -56,12 +56,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phone, name, password, wallet = 0, adminId } = body;
+    const {
+      phone,
+      name,
+      password,
+      walletBalance = 0,
+      adminId,
+      adminPercentage = 20,
+      autoLock = true,
+    } = body;
 
     // Validate required fields
     if (!phone || !name || !password || !adminId) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Validate adminPercentage range
+    if (adminPercentage < 0 || adminPercentage > 100) {
+      return NextResponse.json(
+        { error: "Admin percentage must be between 0 and 100" },
         { status: 400 }
       );
     }
@@ -72,7 +88,10 @@ export async function POST(request: NextRequest) {
         phone,
         name,
         password, // Consider hashing the password before saving in real app
-        wallet: Number(wallet),
+        walletBalance: Number(walletBalance),
+        adminPercentage: Number(adminPercentage),
+        autoLock: Boolean(autoLock),
+        debtBalance: 0,
         admin: {
           connect: { id: Number(adminId) },
         },

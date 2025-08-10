@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 // @ts-ignore - Prisma type import issue
 import { Cashier } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { Pencil, ArrowLeft } from "lucide-react";
+import { Pencil, ArrowLeft, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import StatCard from "@/components/StatCard";
@@ -146,6 +146,18 @@ export default function CashierDetailPage() {
                   {format(new Date(cashier.createdAt), "MMM dd, yyyy HH:mm")}
                 </span>
               </div>
+            </div>
+          </div>
+          <div className="border-l pl-6 md:w-1/3">
+            <div className="flex items-center gap-4 mb-2">
+              <Wallet className="h-6 w-6 text-primary" />
+              <h2 className="text-lg font-semibold">Wallet</h2>
+            </div>
+            <div className="text-3xl font-bold mb-2">
+              ${((cashier as any).walletBalance ?? 0).toFixed(2)}
+            </div>
+            <div className="text-sm text-yellow-700">
+              Debt: ${((cashier as any).debtBalance ?? 0).toFixed(2)}
             </div>
           </div>
         </div>

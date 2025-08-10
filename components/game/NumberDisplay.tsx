@@ -18,13 +18,13 @@ export const NumberDisplay = ({
     <div className="flex flex-col items-center">
       <div
         className={cn(
-          "relative w-48 h-48 rounded-full flex items-center justify-center shadow-md",
+          "relative w-52 h-52 rounded-full flex items-center justify-center shadow-md",
           currentNumber
             ? BG_COLORS[getLetterForNumber(currentNumber)]
             : "bg-gray-500"
         )}
       >
-        <div className="relative w-36 h-36 rounded-full bg-gradient-to-br from-white via-slate-200 to-slate-500 flex items-center justify-center shadow-inner overflow-hidden">
+        <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-white via-slate-200 to-slate-500 flex items-center justify-center shadow-inner overflow-hidden">
           {/* Optional top-left shine */}
           <div className="absolute w-3/4 h-3/4 top-[-10%] left-[-10%] rounded-full bg-white/20 blur-sm pointer-events-none z-0" />
 
@@ -39,11 +39,11 @@ export const NumberDisplay = ({
           ></div>
 
           {/* Number and Letter */}
-          <div className="relative text-center z-10">
-            <div className="text-black text-2xl font-bold leading-none">
+          <div className="relative text-center z-10 ">
+            {/* <div className="text-black text-2xl font-bold leading-none">
               {currentNumber && getLetterForNumber(currentNumber)}
-            </div>
-            <div className="text-black text-5xl font-bold leading-none">
+            </div> */}
+            <div className="text-black text-[110px] font-bold leading-none ">
               {currentNumber ? currentNumber : "?"}
             </div>
           </div>
@@ -82,10 +82,7 @@ export const NumberDisplay = ({
 
                   {/* Letter + Number Content */}
                   <div className="relative text-center z-10">
-                    <div className="text-black font-bold leading-none">
-                      {letter}
-                    </div>
-                    <div className="text-black font-bold leading-none">
+                    <div className="text-black text-3xl font-bold leading-none">
                       {num}
                     </div>
                   </div>

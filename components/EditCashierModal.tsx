@@ -29,15 +29,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import WinCutTableEditor from "./WinCutTableEditor";
+
+const winCutTableSchema = z.object({
+  minCards: z.number().min(1),
+  maxCards: z.number().min(1),
+  percent5to30: z.number().min(0).max(100),
+  percentAbove30: z.number().min(0).max(100),
+});
 
 const cashierSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().regex(/^\d{10}$/, "Phone must be exactly 10 digits"),
+  walletBalance: z.preprocess(
+    (val) => Number(val),
+    z.number().nonnegative().optional()
+  ),
+  agentPercentage: z.preprocess(
+    (val) => Number(val),
+    z.number().min(0).max(100).optional()
+  ),
+  autoLock: z.boolean().optional(),
+  debtBalance: z.preprocess(
+    (val) => Number(val),
+    z.number().nonnegative().optional()
+  ),
+  winCutTable: z.array(winCutTableSchema).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
 interface EditCashierModalProps {
-  cashier: Cashier;
+  cashier: Cashier & { winCutTables?: any[] };
   open: boolean;
   onClose: () => void;
   onSuccess: (cashier: Cashier) => void;
@@ -54,6 +77,17 @@ export default function EditCashierModal({
     defaultValues: {
       name: cashier.name,
       phone: cashier.phone,
+      walletBalance: cashier.walletBalance ?? 0,
+      agentPercentage: cashier.agentPercentage ?? 0,
+      autoLock: cashier.autoLock ?? true,
+      debtBalance: cashier.debtBalance ?? 0,
+      winCutTable:
+        cashier.winCutTables?.map((w: any) => ({
+          minCards: w.minCards,
+          maxCards: w.maxCards,
+          percent5to30: w.percent5to30,
+          percentAbove30: w.percentAbove30,
+        })) ?? [],
       status: cashier.status,
     },
   });
@@ -82,7 +116,7 @@ export default function EditCashierModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Cashier</DialogTitle>
         </DialogHeader>
@@ -119,6 +153,118 @@ export default function EditCashierModal({
                         const val = e.target.value.replace(/\D/g, "");
                         field.onChange(val);
                       }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="walletBalance"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Wallet Balance</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Wallet amount"
+                      {...field}
+                      value={
+                        typeof field.value === "number" ||
+                        typeof field.value === "string"
+                          ? field.value
+                          : ""
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="debtBalance"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Debt Balance</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Debt amount"
+                      {...field}
+                      value={
+                        typeof field.value === "number" ||
+                        typeof field.value === "string"
+                          ? field.value
+                          : ""
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="agentPercentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Agent Percentage (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      {...field}
+                      value={
+                        typeof field.value === "number" ||
+                        typeof field.value === "string"
+                          ? field.value
+                          : ""
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="autoLock"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Auto Lock</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      Automatically lock when wallet is insufficient
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="winCutTable"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Win Cut Table</FormLabel>
+                  <FormControl>
+                    <WinCutTableEditor
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
                     />
                   </FormControl>
                   <FormMessage />

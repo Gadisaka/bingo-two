@@ -147,10 +147,16 @@ export default function AgentDetailPage() {
           <div className="border-l pl-6 md:w-1/3">
             <div className="flex items-center gap-4 mb-2">
               <Wallet className="h-6 w-6 text-primary" />
-              <h2 className="text-lg font-semibold">Wallet Balance</h2>
+              <h2 className="text-lg font-semibold">Wallet</h2>
             </div>
-            <div className="text-3xl font-bold mb-4">
-              ${agent.wallet.toFixed(2)}
+            <div className="text-3xl font-bold mb-2">
+              $
+              {(agent as any).walletBalance !== undefined
+                ? `$${(agent as any).walletBalance.toFixed(2)}`
+                : `$${(agent as any).wallet?.toFixed(2)}`}
+            </div>
+            <div className="text-sm text-yellow-700">
+              Debt: ${((agent as any).debtBalance ?? 0).toFixed(2)}
             </div>
           </div>
         </div>

@@ -96,6 +96,11 @@ export default function CashierLayout({
           icon: <FileText className="h-4 w-4" />,
           path: "/cashier/report",
         },
+        {
+          name: "Debt",
+          icon: <FileText className="h-4 w-4" />,
+          path: "/cashier/debt",
+        },
       ]}
       topbarActions={[
         {

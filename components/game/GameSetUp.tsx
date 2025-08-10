@@ -65,6 +65,16 @@ export default function GameSetup({ onStart }: setUpProps) {
   const [cardInputValue, setCardInputValue] = useState<string>("");
   const [showNumbersBoard, setShowNumbersBoard] = useState<boolean>(false);
   const audioRef = useRef(null);
+  const [audioFolder, setAudioFolder] = useState<string>("Gold");
+  // New: cache cashier winCutTable
+  const [winCutTable, setWinCutTable] = useState<
+    {
+      minCards: number;
+      maxCards: number;
+      percent5to30: number;
+      percentAbove30: number;
+    }[]
+  >([]);
 
   // Bonus type options
   const BONUS_TYPES = ["winner", "x", "L", "T", "8 call", "10 call", "13 call"];
@@ -102,6 +112,7 @@ export default function GameSetup({ onStart }: setUpProps) {
     try {
       const stored = localStorage.getItem("gameSetup");
       const speed = localStorage.getItem("callSpeed");
+      const savedAudioFolder = localStorage.getItem("audioFolder");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed.selectedCards))
@@ -136,6 +147,10 @@ export default function GameSetup({ onStart }: setUpProps) {
       if (speed) {
         // Convert milliseconds to seconds for display
         setCallSpeed(Number.parseInt(speed) / 1000);
+      }
+
+      if (savedAudioFolder) {
+        setAudioFolder(savedAudioFolder);
       }
 
       // Load bonus settings
@@ -174,14 +189,68 @@ export default function GameSetup({ onStart }: setUpProps) {
     setHydrated(true);
   }, []);
 
-  // Recalculate winning whenever relevant state changes
+  // Fetch cashier win cut table once
   useEffect(() => {
-    const newWinning =
-      selectedCards.length * betAmount >= 100
-        ? selectedCards.length * betAmount * 0.8
-        : selectedCards.length * betAmount;
+    (async () => {
+      try {
+        const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!meRes.ok) return;
+        const me = await meRes.json();
+        const id = me?.user?.id;
+        const role = (me?.user?.role || "").toString().toUpperCase();
+        if (!id || role !== "CASHIER") return;
+        const cashRes = await fetch(`/api/cashiers/${id}`, {
+          cache: "no-store",
+        });
+        if (!cashRes.ok) return;
+        const cashier = await cashRes.json();
+        if (Array.isArray(cashier?.winCutTables)) {
+          setWinCutTable(
+            cashier.winCutTables.map((r: any) => ({
+              minCards: Number(r.minCards),
+              maxCards: Number(r.maxCards),
+              percent5to30: Number(r.percent5to30 ?? 0),
+              percentAbove30: Number(r.percentAbove30 ?? 0),
+            }))
+          );
+        }
+      } catch (e) {
+        // ignore; fallback handled below
+      }
+    })();
+  }, []);
+
+  // Helper: compute winning from table
+  const computeWinningFromTable = useCallback(
+    (numCards: number, bet: number): number => {
+      if (
+        !numCards ||
+        !bet ||
+        !Array.isArray(winCutTable) ||
+        winCutTable.length === 0
+      ) {
+        return 0;
+      }
+      const rule = winCutTable.find(
+        (r) => numCards >= r.minCards && numCards <= r.maxCards
+      );
+      const winCutPercent = rule
+        ? bet <= 30
+          ? rule.percent5to30
+          : rule.percentAbove30
+        : 0;
+      const totalBet = numCards * bet;
+      // winning amount = total bet - (total bet * win cut)
+      return totalBet - totalBet * (winCutPercent / 100);
+    },
+    [winCutTable]
+  );
+
+  // Recalculate winning whenever relevant state changes (from table)
+  useEffect(() => {
+    const newWinning = computeWinningFromTable(selectedCards.length, betAmount);
     setWinning(newWinning);
-  }, [selectedCards, betAmount /*, commission*/]);
+  }, [selectedCards, betAmount, computeWinningFromTable]);
 
   // Save to localStorage on change
   useEffect(() => {
@@ -197,13 +266,11 @@ export default function GameSetup({ onStart }: setUpProps) {
       bonusAmount: BONUS_AMOUNTS[bonusAmountIndex],
       betAmountIndex: betAmountIndex,
       gamePatternIndex: gamePatternIndex,
-      winning:
-        selectedCards.length * betAmount >= 100
-          ? selectedCards.length * betAmount * 0.8
-          : selectedCards.length * betAmount,
+      winning: computeWinningFromTable(selectedCards.length, betAmount),
     };
 
     localStorage.setItem("gameSetup", JSON.stringify(data));
+    localStorage.setItem("audioFolder", audioFolder);
   }, [
     selectedCards,
     betAmount,
@@ -214,6 +281,8 @@ export default function GameSetup({ onStart }: setUpProps) {
     bonusAmountIndex,
     betAmountIndex,
     gamePatternIndex,
+    audioFolder,
+    computeWinningFromTable,
   ]);
 
   // Save call speed to localStorage
@@ -662,11 +731,25 @@ export default function GameSetup({ onStart }: setUpProps) {
           >
             <Fullscreen className="h-10 w-10" />
           </button>
+          {/* <div className="text-white text-3xl font-bold">
+            Players ({selectedCards.length})
+          </div> */}
         </div>
         <h1 className="text-6xl  text-stroke-white font-bold my-3 z-10 text-orange-500 font-potta-one ">
           GOLD BINGO
         </h1>
         <div className="flex justify-center items-center gap-4">
+          <div>
+            <label className="text-white text-sm mr-2">Sound</label>
+            <select
+              value={audioFolder}
+              onChange={(e) => setAudioFolder(e.target.value)}
+              className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1"
+            >
+              <option value="Gold">Amh 1</option>
+              <option value="Gold2">Amh 2</option>
+            </select>
+          </div>
           <button
             className="yellow-card-button p-3 text-3xl"
             onClick={toggleMute}
@@ -932,6 +1015,40 @@ export default function GameSetup({ onStart }: setUpProps) {
             >
               +
             </button>
+          </div>
+          <div className="w-full mx-auto mt-3 grid grid-cols-1 gap-3">
+            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
+              <div className="text-xs text-gray-400">Players</div>
+              <div className="text-xl font-semibold">
+                {selectedCards.length}
+              </div>
+            </div>
+            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
+              <div className="text-xs text-gray-400">Bet (Birr)</div>
+              <div className="text-xl font-semibold">{betAmount}</div>
+            </div>
+            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
+              <div className="text-xs text-gray-400">Applied Win-Cut %</div>
+              <div className="text-xl font-semibold">
+                {(() => {
+                  const rule = winCutTable.find(
+                    (r) =>
+                      selectedCards.length >= r.minCards &&
+                      selectedCards.length <= r.maxCards
+                  );
+                  const percent = rule
+                    ? betAmount <= 30
+                      ? rule.percent5to30
+                      : rule.percentAbove30
+                    : 0;
+                  return `${percent.toFixed(1)}%`;
+                })()}
+              </div>
+            </div>
+            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
+              <div className="text-xs text-gray-400">Winning (Birr)</div>
+              <div className="text-xl font-semibold">{winning.toFixed(2)}</div>
+            </div>
           </div>
         </div>
         <div className="max-h-[400px] overflow-y-scroll bg-gray-800 z-50 border-gray-700 p-10 space-y-10">

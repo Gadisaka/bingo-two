@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Gamepad2, CreditCard, User, UserCog, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import WalletDebtCard from "@/components/WalletDebtCard";
 
 type Metrics = {
   games: {
@@ -90,36 +91,35 @@ export default function AdminDashboardPage() {
       {/* Revenue Metrics */}
       <MetricCard
         title="Today Revenue"
-        value={metrics.revenue.today}
+        value={(metrics as any).revenue.today}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
       <MetricCard
-        title="Weekly Revenue"
-        value={metrics.revenue.weekly}
+        title="Total Bet (All)"
+        value={(metrics as any).totalBet?.total || 0}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
       <MetricCard
-        title="Total Revenue"
-        value={metrics.revenue.total}
+        title="Cashier Commission (All)"
+        value={(metrics as any).commissions?.cashier?.total || 0}
+        icon={<CreditCard className="h-4 w-4" />}
+        isCurrency
+      />
+      <MetricCard
+        title="Agent Commission (All)"
+        value={(metrics as any).commissions?.agent?.total || 0}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
 
-      {/* User Metrics */}
+      {/* Wallet & Debt */}
+      <div className="col-span-2 md:col-span-3">
+        <WalletDebtCard title="Agent Wallet" />
+      </div>
 
-      <MetricCard
-        title="Wallet"
-        value={metrics.users.agents}
-        icon={
-          <Wallet
-            className="h-4 w-4"
-            color={metrics.users.agents < 2000 ? "red" : "green"}
-          />
-        }
-      />
-
+      {/* Users */}
       <MetricCard
         title="Cashiers"
         value={metrics.users.cashiers}

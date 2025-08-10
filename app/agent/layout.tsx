@@ -48,6 +48,11 @@ export default function AgentLayout({
           icon: <FileText className="h-4 w-4" />,
           path: "/agent/report",
         },
+        {
+          name: "Debt",
+          icon: <FileText className="h-4 w-4" />,
+          path: "/agent/debt",
+        },
       ]}
     >
       {children}

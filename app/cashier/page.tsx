@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Gamepad2, CreditCard, Wallet2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import WalletDebtCard from "@/components/WalletDebtCard";
 
 type Metrics = {
   games: {
@@ -94,7 +95,7 @@ export default function AdminDashboardPage() {
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
-      {/* <MetricCard
+      <MetricCard
         title="Weekly Revenue"
         value={metrics.revenue.weekly}
         icon={<CreditCard className="h-4 w-4" />}
@@ -105,17 +106,12 @@ export default function AdminDashboardPage() {
         value={metrics.revenue.total}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
-      /> */}
-      <MetricCard
-        title="Agent Wallet"
-        value={metrics.users.cashiers}
-        icon={
-          <Wallet2
-            className="h-4 w-4"
-            color={metrics.users.cashiers < 2000 ? "red" : "green"}
-          />
-        }
       />
+
+      {/* Wallet & Debt */}
+      <div className="col-span-2 md:col-span-3">
+        <WalletDebtCard title="Cashier Wallet" />
+      </div>
     </div>
   );
 }
