@@ -40,40 +40,55 @@ export async function POST(
 
     const agentId = parseInt((await params).id);
 
-    // Check if agent exists and get current debt balance
+    // Check if agent exists
     const agent = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { id: true, walletBalance: true, debtBalance: true },
     });
 
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    // Implement debt-first payment logic
-    const currentDebt = agent.debtBalance || 0;
+    // Implement debt-first payment system
     let remainingAmount = amount;
-    let newWalletBalance = agent.walletBalance || 0;
-    let newDebtBalance = currentDebt;
+    let newWalletBalance = agent.walletBalance;
+    let newDebtBalance = agent.debtBalance;
 
-    if (currentDebt > 0) {
-      // First, pay off existing debt
-      if (amount >= currentDebt) {
-        // Topup amount is sufficient to pay off all debt
+    console.log(
+      `Agent topup - Initial state: amount=${amount}, currentDebt=${agent.debtBalance}, currentWallet=${agent.walletBalance}`
+    );
+
+    // If agent has debt, pay it off first
+    if (agent.debtBalance > 0) {
+      if (remainingAmount >= agent.debtBalance) {
+        // Topup amount can fully pay off the debt
+        remainingAmount -= agent.debtBalance;
         newDebtBalance = 0;
-        remainingAmount = amount - currentDebt;
         newWalletBalance += remainingAmount;
+        console.log(
+          `Agent topup - Debt fully paid off: ${agent.debtBalance}, remaining for wallet: ${remainingAmount}`
+        );
       } else {
-        // Topup amount is less than debt - pay off partial debt
-        newDebtBalance = currentDebt - amount;
+        // Topup amount can only partially pay off the debt
+        newDebtBalance -= remainingAmount;
         remainingAmount = 0;
+        console.log(
+          `Agent topup - Debt partially paid off: ${amount}, remaining debt: ${newDebtBalance}`
+        );
       }
     } else {
-      // No existing debt - add all topup to wallet
-      newWalletBalance += amount;
+      // No debt, add all to wallet
+      newWalletBalance += remainingAmount;
+      console.log(
+        `Agent topup - No debt, all amount added to wallet: ${amount}`
+      );
     }
 
-    // Update agent with new balances
+    console.log(
+      `Agent topup - Final state: newWallet=${newWalletBalance}, newDebt=${newDebtBalance}`
+    );
+
+    // Update agent with debt-first payment logic
     const updatedAgent = await prisma.agent.update({
       where: { id: agentId },
       data: {
@@ -82,21 +97,27 @@ export async function POST(
       },
     });
 
-    // Prepare response message based on what happened
+    // Create informative message based on what happened
     let message = "Wallet topped up successfully";
-    if (currentDebt > 0) {
-      if (amount >= currentDebt) {
-        message = `Debt fully paid off (${currentDebt}) and wallet topped up with remaining amount (${remainingAmount})`;
+    if (agent.debtBalance > 0) {
+      if (amount >= agent.debtBalance) {
+        message = `Debt fully paid off (${agent.debtBalance.toFixed(
+          2
+        )}) and wallet topped up with remaining amount (${(
+          amount - agent.debtBalance
+        ).toFixed(2)})`;
       } else {
-        message = `Partial debt payment (${amount}) applied. Remaining debt: ${newDebtBalance}`;
+        message = `Debt partially paid off (${amount.toFixed(
+          2
+        )}) from total debt (${agent.debtBalance.toFixed(2)})`;
       }
     }
 
     return NextResponse.json({
       message,
       agent: updatedAgent,
-      debtPaid: Math.min(amount, currentDebt),
-      walletAdded: remainingAmount,
+      debtPaid: Math.min(amount, agent.debtBalance),
+      walletAdded: Math.max(0, amount - agent.debtBalance),
     });
   } catch (error) {
     console.error("Top-up error:", error);

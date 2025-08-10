@@ -66,7 +66,7 @@ export default function GameSetup({ onStart }: setUpProps) {
   const [showNumbersBoard, setShowNumbersBoard] = useState<boolean>(false);
   const audioRef = useRef(null);
   const [audioFolder, setAudioFolder] = useState<string>("Gold");
-  // New: cache cashier winCutTable
+  // New: cache cashier winCutTable and cashier data
   const [winCutTable, setWinCutTable] = useState<
     {
       minCards: number;
@@ -75,6 +75,12 @@ export default function GameSetup({ onStart }: setUpProps) {
       percentAbove30: number;
     }[]
   >([]);
+
+  // Cashier data for balance checking
+  const [cashierData, setCashierData] = useState<{
+    walletBalance: number;
+    autoLock: boolean;
+  } | null>(null);
 
   // Bonus type options
   const BONUS_TYPES = ["winner", "x", "L", "T", "8 call", "10 call", "13 call"];
@@ -204,6 +210,13 @@ export default function GameSetup({ onStart }: setUpProps) {
         });
         if (!cashRes.ok) return;
         const cashier = await cashRes.json();
+
+        // Store cashier data for balance checking
+        setCashierData({
+          walletBalance: Number(cashier.walletBalance || 0),
+          autoLock: Boolean(cashier.autoLock),
+        });
+
         if (Array.isArray(cashier?.winCutTables)) {
           setWinCutTable(
             cashier.winCutTables.map((r: any) => ({
@@ -246,11 +259,34 @@ export default function GameSetup({ onStart }: setUpProps) {
     [winCutTable]
   );
 
+  // Helper: check if game can proceed based on balance and auto-lock
+  const canGameProceed = useCallback(() => {
+    if (!cashierData || selectedCards.length === 0) return false;
+
+    const totalBet = selectedCards.length * betAmount;
+    const winningAmount = computeWinningFromTable(
+      selectedCards.length,
+      betAmount
+    );
+    const requiredBalance = totalBet - winningAmount; // Net amount cashier needs to pay (win cut)
+    const hasSufficientBalance = cashierData.walletBalance >= requiredBalance;
+
+    // Game can proceed if:
+    // 1. Balance is sufficient for the win cut, OR
+    // 2. Auto-lock is OFF (debt allowed)
+    return hasSufficientBalance || !cashierData.autoLock;
+  }, [cashierData, selectedCards.length, betAmount, computeWinningFromTable]);
+
   // Recalculate winning whenever relevant state changes (from table)
   useEffect(() => {
     const newWinning = computeWinningFromTable(selectedCards.length, betAmount);
     setWinning(newWinning);
   }, [selectedCards, betAmount, computeWinningFromTable]);
+
+  // Update bet amount when betAmountIndex changes
+  useEffect(() => {
+    setBetAmount(BET_AMOUNTS[betAmountIndex]);
+  }, [betAmountIndex]);
 
   // Save to localStorage on change
   useEffect(() => {
@@ -325,6 +361,34 @@ export default function GameSetup({ onStart }: setUpProps) {
       toast.error("Select at least 3 cards to start");
       return;
     }
+
+    // Check cashier balance before starting game
+    if (cashierData) {
+      const totalBet = selectedCards.length * betAmount;
+      const winningAmount = computeWinningFromTable(
+        selectedCards.length,
+        betAmount
+      );
+      const requiredBalance = totalBet - winningAmount; // Net amount cashier needs to pay (win cut)
+
+      if (cashierData.walletBalance < requiredBalance) {
+        if (cashierData.autoLock) {
+          // Auto-lock is ON and balance is insufficient - block the game
+          toast.error("cannot start game, Insufficient balance");
+          return;
+        } else {
+          // Auto-lock is OFF - allow game but show warning about debt
+          toast.warning(
+            `Low balance warning: You have $${cashierData.walletBalance.toFixed(
+              2
+            )} but need $${requiredBalance.toFixed(
+              2
+            )} (win cut). Game will proceed and debt will increase.`
+          );
+        }
+      }
+    }
+
     toast.success("Game Ready to Start!");
     onStart();
   };
@@ -1193,12 +1257,15 @@ export default function GameSetup({ onStart }: setUpProps) {
             </div>
           </div>
         </div>
+
         <button
           onClick={handleStartGame}
-          disabled={selectedCards.length < 1}
-          className={`  px-7 cursor-pointer py-4 text-4xl yellow-card-button ${
-            selectedCards.length < 1 && "bg-gray-300 text-gray-900"
-          }  `}
+          disabled={!canGameProceed()}
+          className={`px-7 cursor-pointer py-4 text-4xl yellow-card-button ${
+            !canGameProceed()
+              ? "bg-gray-300 text-gray-900 cursor-not-allowed"
+              : ""
+          }`}
         >
           Play
         </button>
