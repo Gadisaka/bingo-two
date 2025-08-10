@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phone, name, password, wallet = 0, adminId } = body;
+    const { phone, name, password, walletBalance = 0, adminId } = body;
 
     // Validate required fields
     if (!phone || !name || !password || !adminId) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         phone,
         name,
         password, // Consider hashing the password before saving in real app
-        wallet: Number(wallet),
+        walletBalance: Number(walletBalance),
         admin: {
           connect: { id: Number(adminId) },
         },
