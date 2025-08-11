@@ -950,7 +950,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                 return null;
               })()}
 
-            {!jackpotEnabled && (
+            {/* {!jackpotEnabled && (
               <>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -981,7 +981,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                   })()}
                 </div>
               </>
-            )}
+            )} */}
           </div>
         </div>
         <div className="flex w-full justify-around px items-center gap-4 mb-22 z-10">
