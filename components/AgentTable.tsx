@@ -19,7 +19,12 @@ import { Eye, Key, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ChangePasswordModal from "./ChangePasswordModal";
 import ChangeStatusModal from "./ChangeStatusModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 type Agent = PrismaAgent & {
@@ -164,12 +169,20 @@ export default function AgentTable({
                 <TableCell>{agent.id}</TableCell>
                 <TableCell>{agent.name}</TableCell>
                 <TableCell>{agent.phone}</TableCell>
-                <TableCell>
-                  ${(agent.walletBalance ?? agent.wallet ?? 0).toFixed(2)}
-                </TableCell>
+                <TableCell>${(agent.walletBalance ?? 0).toFixed(2)}</TableCell>
                 <TableCell>${(agent.debtBalance ?? 0).toFixed(2)}</TableCell>
-                <TableCell>{agent.adminPercentage !== undefined ? agent.adminPercentage + '%' : 'N/A'}</TableCell>
-                <TableCell>{agent.autoLock !== undefined ? (agent.autoLock ? 'Yes' : 'No') : 'N/A'}</TableCell>
+                <TableCell>
+                  {agent.adminPercentage !== undefined
+                    ? agent.adminPercentage + "%"
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {agent.autoLock !== undefined
+                    ? agent.autoLock
+                      ? "Yes"
+                      : "No"
+                    : "N/A"}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -241,7 +254,7 @@ export default function AgentTable({
               <div>
                 <div className="font-medium mb-1">Agent: {topUpAgent.name}</div>
                 <div className="text-sm text-muted-foreground mb-2">
-                  Current Balance: ${(topUpAgent.walletBalance ?? topUpAgent.wallet ?? 0).toFixed(2)}
+                  Current Balance: ${(topUpAgent.walletBalance ?? 0).toFixed(2)}
                 </div>
                 <Input
                   type="number"
@@ -267,7 +280,9 @@ export default function AgentTable({
                   onClick={handleTopUp}
                   disabled={topUpAmount <= 0 || topUpLoading}
                 >
-                  {topUpLoading ? <span className="animate-spin mr-2">⏳</span> : null}
+                  {topUpLoading ? (
+                    <span className="animate-spin mr-2">⏳</span>
+                  ) : null}
                   Top Up
                 </Button>
               </div>

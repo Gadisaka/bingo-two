@@ -35,7 +35,11 @@ export async function GET(req: NextRequest) {
 
   // Date helpers
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
   const startOfWeek = new Date(startOfToday);
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
 
@@ -72,7 +76,6 @@ export async function GET(req: NextRequest) {
     adminsCount = await prisma.admin.count();
     agentsCount = await prisma.agent.count();
     cashiersCount = await prisma.cashier.count();
-
   } else if (role === "AGENT") {
     // Agent sees reports for own cashiers
 
@@ -81,8 +84,8 @@ export async function GET(req: NextRequest) {
       select: { id: true },
     });
 
-    const agent=await prisma.agent.findUnique({where:{id:userId}})
-    const cashierIds = cashiers.map(c => c.id);
+    const agent = await prisma.agent.findUnique({ where: { id: userId } });
+    const cashierIds = cashiers.map((c) => c.id);
 
     gamesTotal = await prisma.report.count({
       where: { cashierId: { in: cashierIds } },
@@ -127,14 +130,15 @@ export async function GET(req: NextRequest) {
     revenueWeekly = revenueWeeklyAgg._sum.revenue || 0;
 
     adminsCount = 1; // self/admin count can be adjusted
-    agentsCount = agent?.wallet||0;
+    agentsCount = agent?.walletBalance || 0;
     cashiersCount = cashierIds.length;
-
   } else if (role === "CASHIER") {
     // Cashier sees own reports
 
-    const cashier=await prisma.cashier.findUnique({where:{id:userId}})
-    const agent=await prisma.agent.findUnique({where:{id:cashier?.agentId}})
+    const cashier = await prisma.cashier.findUnique({ where: { id: userId } });
+    const agent = await prisma.agent.findUnique({
+      where: { id: cashier?.agentId },
+    });
 
     gamesTotal = await prisma.report.count({
       where: { cashierId: userId },
@@ -180,7 +184,7 @@ export async function GET(req: NextRequest) {
 
     adminsCount = 1;
     agentsCount = 1;
-    cashiersCount = agent?.wallet||0;
+    cashiersCount = agent?.walletBalance || 0;
   } else {
     return NextResponse.json({ error: "Invalid role" }, { status: 403 });
   }

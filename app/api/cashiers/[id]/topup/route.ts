@@ -44,7 +44,7 @@ export async function POST(
     // Check if agent has sufficient balance
     const agent = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { walletBalance: true, autoLock: true },
+      select: { walletBalance: true, debtBalance: true, autoLock: true },
     });
 
     if (!agent) {
