@@ -127,8 +127,14 @@ export default function AdminDashboardPage() {
         isCurrency
       />
       <MetricCard
-        title="Total Bet (All)"
-        value={metrics.totalBet.total}
+        title="Weekly Revenue"
+        value={metrics.revenue.weekly}
+        icon={<CreditCard className="h-4 w-4" />}
+        isCurrency
+      />
+      <MetricCard
+        title="Total Revenue"
+        value={metrics.revenue.total}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
@@ -144,19 +150,15 @@ export default function AdminDashboardPage() {
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
       />
-      <MetricCard
+      {/* <MetricCard
         title="Admin Commission (All)"
         value={metrics.commissions.admin.total}
         icon={<CreditCard className="h-4 w-4" />}
         isCurrency
-      />
+      /> */}
 
       {/* User Metrics */}
-      <MetricCard
-        title="Admins"
-        value={metrics.users.admins}
-        icon={<User className="h-4 w-4" />}
-      />
+
       <MetricCard
         title="Agents"
         value={metrics.users.agents}

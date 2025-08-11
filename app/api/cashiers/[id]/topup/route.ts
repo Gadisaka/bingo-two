@@ -2,6 +2,12 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt } from "@/lib/auth";
+import {
+  calculateWalletIncrease,
+  calculateDebtFirstPayment,
+  generateWalletMessage,
+  validateWalletDeduction,
+} from "@/lib/wallet-utils";
 
 export async function POST(
   request: NextRequest,
@@ -31,85 +37,65 @@ export async function POST(
 
     const cashierId = parseInt((await params).id);
 
-    // Check if cashier exists and belongs to this agent
+    // Check if cashier exists and belongs to this agent, and get their percentage
     const cashier = await prisma.cashier.findUnique({
       where: { id: cashierId },
-      include: { agent: true },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            walletBalance: true,
+            debtBalance: true,
+            autoLock: true,
+          },
+        },
+      },
     });
 
     if (!cashier || cashier.agentId !== agentId) {
       return NextResponse.json({ error: "Cashier not found" }, { status: 404 });
     }
 
-    // Check if agent has sufficient balance
-    const agent = await prisma.agent.findUnique({
-      where: { id: agentId },
-      select: { walletBalance: true, debtBalance: true, autoLock: true },
-    });
+    // Calculate cashier wallet increase based on percentage
+    const calculation = calculateWalletIncrease(
+      amount,
+      cashier.agentPercentage
+    );
 
+    console.log(
+      `Agent topup calculation: amount=${amount}, agentPercentage=${cashier.agentPercentage}%, cashierWalletIncrease=${calculation.calculatedIncrease}`
+    );
+
+    // Check if agent has sufficient balance for the deduction
+    const agent = cashier.agent;
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    // Implement debt-first payment system for cashier
-    let remainingAmount = amount;
-    let newCashierWalletBalance = cashier.walletBalance;
-    let newCashierDebtBalance = cashier.debtBalance;
-    let newAgentWalletBalance = agent.walletBalance;
-    let newAgentDebtBalance = agent.debtBalance;
-
-    console.log(
-      `Cashier topup - Initial state: amount=${amount}, cashierDebt=${cashier.debtBalance}, cashierWallet=${cashier.walletBalance}, agentWallet=${agent.walletBalance}`
+    // Validate agent wallet deduction
+    const validation = validateWalletDeduction(
+      agent.walletBalance,
+      amount,
+      agent.autoLock
     );
 
-    // First, check if cashier has debt and pay it off
-    if (cashier.debtBalance > 0) {
-      if (remainingAmount >= cashier.debtBalance) {
-        // Topup amount can fully pay off the cashier's debt
-        remainingAmount -= cashier.debtBalance;
-        newCashierDebtBalance = 0;
-        newCashierWalletBalance += remainingAmount;
-        console.log(
-          `Cashier topup - Debt fully paid off: ${cashier.debtBalance}, remaining for wallet: ${remainingAmount}`
-        );
-      } else {
-        // Topup amount can only partially pay off the cashier's debt
-        newCashierDebtBalance -= remainingAmount;
-        remainingAmount = 0;
-        console.log(
-          `Cashier topup - Debt partially paid off: ${amount}, remaining debt: ${newCashierDebtBalance}`
-        );
-      }
-    } else {
-      // No cashier debt, add all to wallet
-      newCashierWalletBalance += remainingAmount;
-      console.log(
-        `Cashier topup - No debt, all amount added to wallet: ${amount}`
-      );
-    }
-
-    console.log(
-      `Cashier topup - Final cashier state: newWallet=${newCashierWalletBalance}, newDebt=${newCashierDebtBalance}`
-    );
-
-    // Now handle agent's wallet/debt for the payment
-    if (agent.walletBalance < amount) {
+    if (!validation.isValid) {
       if (agent.autoLock) {
-        return NextResponse.json(
-          { error: "Insufficient agent wallet balance. Auto-lock is enabled." },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: validation.error }, { status: 400 });
       } else {
         // Allow top-up but increase agent debt
         const result = await prisma.$transaction(async (tx) => {
+          // Update cashier wallet with the calculated increase
           const updatedCashier = await tx.cashier.update({
             where: { id: cashierId },
             data: {
-              walletBalance: newCashierWalletBalance,
-              debtBalance: newCashierDebtBalance,
+              walletBalance: {
+                increment: calculation.calculatedIncrease,
+              },
             },
           });
 
+          // Update agent - deduct from wallet and increase debt
           const updatedAgent = await tx.agent.update({
             where: { id: agentId },
             data: {
@@ -127,56 +113,81 @@ export async function POST(
           message:
             "Wallet topped up successfully with debt-first payment (agent debt increased)",
           ...result,
-        });
-      }
-    } else {
-      // Agent has sufficient funds
-      const result = await prisma.$transaction(async (tx) => {
-        const updatedCashier = await tx.cashier.update({
-          where: { id: cashierId },
-          data: {
-            walletBalance: newCashierWalletBalance,
-            debtBalance: newCashierDebtBalance,
+          calculationDetails: {
+            agentInput: amount,
+            agentPercentage: cashier.agentPercentage,
+            cashierWalletIncrease: calculation.calculatedIncrease,
+            formula: calculation.formula,
+            agentDebtIncrease: amount - agent.walletBalance,
           },
         });
-
-        const updatedAgent = await tx.agent.update({
-          where: { id: agentId },
-          data: {
-            walletBalance: {
-              decrement: amount,
-            },
-          },
-        });
-
-        return { cashier: updatedCashier, agent: updatedAgent };
-      });
-
-      // Create informative message based on what happened
-      let message = "Wallet topped up successfully";
-      if (cashier.debtBalance > 0) {
-        if (amount >= cashier.debtBalance) {
-          message = `Cashier debt fully paid off (${cashier.debtBalance.toFixed(
-            2
-          )}) and wallet topped up with remaining amount (${(
-            amount - cashier.debtBalance
-          ).toFixed(2)})`;
-        } else {
-          message = `Cashier debt partially paid off (${amount.toFixed(
-            2
-          )}) from total debt (${cashier.debtBalance.toFixed(2)})`;
-        }
       }
-
-      return NextResponse.json({
-        message,
-        ...result,
-        debtPaid: Math.min(amount, cashier.debtBalance),
-        walletAdded: Math.max(0, amount - cashier.debtBalance),
-      });
     }
+
+    // Agent has sufficient funds - implement debt-first payment system for cashier
+    const debtFirstResult = calculateDebtFirstPayment(
+      calculation.calculatedIncrease,
+      cashier.debtBalance,
+      cashier.walletBalance
+    );
+
+    console.log(
+      `Cashier topup - Final cashier state: newWallet=${debtFirstResult.newWalletBalance}, newDebt=${debtFirstResult.newDebtBalance}`
+    );
+
+    // Agent has sufficient funds
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedCashier = await tx.cashier.update({
+        where: { id: cashierId },
+        data: {
+          walletBalance: debtFirstResult.newWalletBalance,
+          debtBalance: debtFirstResult.newDebtBalance,
+        },
+      });
+
+      const updatedAgent = await tx.agent.update({
+        where: { id: agentId },
+        data: {
+          walletBalance: {
+            decrement: amount,
+          },
+        },
+      });
+
+      return { cashier: updatedCashier, agent: updatedAgent };
+    });
+
+    // Generate informative message
+    const message = generateWalletMessage(
+      "Top-up",
+      debtFirstResult.debtPaid,
+      debtFirstResult.walletAdded
+    );
+
+    return NextResponse.json({
+      message,
+      ...result,
+      debtPaid: debtFirstResult.debtPaid,
+      walletAdded: debtFirstResult.walletAdded,
+      calculationDetails: {
+        agentInput: amount,
+        agentPercentage: cashier.agentPercentage,
+        cashierWalletIncrease: calculation.calculatedIncrease,
+        formula: calculation.formula,
+        agentWalletDeduction: amount,
+      },
+    });
   } catch (error) {
     console.error("Top-up error:", error);
+
+    // Handle specific validation errors
+    if (
+      error instanceof Error &&
+      error.message.includes("Invalid percentage")
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     return NextResponse.json(
       { error: "Failed to top up wallet" },
       { status: 500 }
