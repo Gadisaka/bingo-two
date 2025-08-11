@@ -70,10 +70,7 @@ export default function JackpotPage() {
             min="1"
             max="100"
           />
-          <p className="text-sm text-gray-600 mt-1">
-            Jackpot amount will be calculated as this percentage of the total
-            bet amount
-          </p>
+          <p className="text-sm text-gray-600 mt-1">የ ጃክፖት ሽልማት በ % ከደራሽ ላይ</p>
         </div>
 
         {/* Starting Amount */}
@@ -89,8 +86,7 @@ export default function JackpotPage() {
             min="1"
           />
           <p className="text-sm text-gray-600 mt-1">
-            Jackpot will only be active if total bet amount is equal to or
-            greater than this amount
+            የ ጃክፖት ሽልማት የሚጀምርበት የደራሽ መጠን
           </p>
         </div>
 
@@ -102,17 +98,14 @@ export default function JackpotPage() {
             className="w-full border px-3 py-2 rounded"
             value={matchGap}
             onChange={(e) => setMatchGap(parseInt(e.target.value))}
-            min="0"
+            min="1"
           />
-          <p className="text-sm text-gray-600 mt-1">
-            Maximum difference between winning number and daily number to
-            trigger jackpot
-          </p>
+          <p className="text-sm text-gray-600 mt-1">በስንት ጨዋታ ልዩነት</p>
         </div>
 
         {/* Daily Number */}
         <div className="mb-6">
-          <label className="block font-medium mb-1">Daily Jackpot Number</label>
+          <label className="block font-medium mb-1">Daily Jackpot Count</label>
           <input
             type="number"
             className="w-full border px-3 py-2 rounded"
@@ -122,7 +115,7 @@ export default function JackpotPage() {
             max="75"
           />
           <p className="text-sm text-gray-600 mt-1">
-            The target number for jackpot activation (1-75)
+            በ ቀን ውስጥ የሚሰጠው የጃክፖት ሽልማት ብዛት
           </p>
         </div>
 
@@ -142,6 +135,24 @@ export default function JackpotPage() {
             Back
           </button>
         </div>
+
+        {/* Reset Daily Jackpot Data */}
+        {/* <div className="mt-4 pt-4 border-t">
+          <button
+            className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+            onClick={() => {
+              const today = new Date().toDateString();
+              const dailyJackpotKey = `dailyJackpot_${today}`;
+              localStorage.removeItem(dailyJackpotKey);
+              alert("Daily jackpot data reset for today!");
+            }}
+          >
+            Reset Today's Jackpot Data
+          </button>
+          <p className="text-xs text-gray-500 mt-1 text-center">
+            Use this to reset jackpot tracking for testing purposes
+          </p>
+        </div> */}
       </div>
     </div>
   );

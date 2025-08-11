@@ -373,7 +373,22 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     return () => clearInterval(interval);
   }, [currentNumber]);
 
+  // Clean up old daily jackpot data
+  const cleanupOldJackpotData = () => {
+    const today = new Date().toDateString();
+    const keys = Object.keys(localStorage);
+
+    keys.forEach((key) => {
+      if (key.startsWith("dailyJackpot_") && key !== `dailyJackpot_${today}`) {
+        localStorage.removeItem(key);
+      }
+    });
+  };
+
   useEffect(() => {
+    // Clean up old jackpot data on component mount
+    cleanupOldJackpotData();
+
     // Read jackpotEnabled from localStorage on mount and check if it should be active
     const jackpotSettingsRaw = localStorage.getItem("jackpotSettings");
     if (jackpotSettingsRaw) {
@@ -527,8 +542,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       if (jackpotSettingsRaw) {
         try {
           const jackpotSettings = JSON.parse(jackpotSettingsRaw);
-          const dailyNumber = Number(jackpotSettings.dailyNumber);
-          const matchGap = Number(jackpotSettings.matchGap);
+          const dailyNumber = Number(jackpotSettings.dailyNumber); // Number of jackpots to give per day
+          const matchGap = Number(jackpotSettings.matchGap); // Gap between jackpot numbers
           const jackpotStartingAmount = Number(
             jackpotSettings.jackpotStartingAmount ||
               jackpotSettings.jackpotAmount
@@ -543,20 +558,69 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           const isJackpotActive =
             jackpotEnabled === "On" && totalBetAmount >= jackpotStartingAmount;
 
-          // Check if winning number matches daily number within gap
-          const isNumberMatch =
-            typeof playerWinningNumber === "number" &&
-            Math.abs(playerWinningNumber - dailyNumber) <= matchGap;
+          if (isJackpotActive && typeof playerWinningNumber === "number") {
+            // Get today's date as a string for tracking daily jackpots
+            const today = new Date().toDateString();
 
-          if (isJackpotActive && isNumberMatch) {
-            // Calculate jackpot amount as percentage of total bet
-            const calculatedJackpotAmount = Math.round(
-              (totalBetAmount * jackpotPercent) / 100
-            );
-            jackpotInfo = {
-              isJackpot: true,
-              jackpotAmount: calculatedJackpotAmount,
-            };
+            // Get or initialize daily jackpot tracking
+            const dailyJackpotKey = `dailyJackpot_${today}`;
+            const dailyJackpotData = localStorage.getItem(dailyJackpotKey);
+            let dailyJackpotCount = 0;
+            let usedJackpotNumbers: number[] = [];
+
+            if (dailyJackpotData) {
+              try {
+                const parsed = JSON.parse(dailyJackpotData);
+                dailyJackpotCount = parsed.count || 0;
+                usedJackpotNumbers = parsed.usedNumbers || [];
+              } catch (e) {
+                // ignore parse error, start fresh
+              }
+            }
+
+            // Check if we haven't reached the daily jackpot limit
+            if (dailyJackpotCount < dailyNumber) {
+              // Generate jackpot numbers based on match gap
+              // Start from 1 and increment by matchGap until we reach dailyNumber count
+              const jackpotNumbers: number[] = [];
+              for (let i = 0; i < dailyNumber; i++) {
+                jackpotNumbers.push(1 + i * matchGap);
+              }
+
+              // Check if the winning number is in the jackpot numbers and hasn't been used
+              const isJackpotNumber =
+                jackpotNumbers.includes(playerWinningNumber);
+              const isNumberAlreadyUsed =
+                usedJackpotNumbers.includes(playerWinningNumber);
+
+              if (isJackpotNumber && !isNumberAlreadyUsed) {
+                // Calculate jackpot amount as percentage of total bet
+                const calculatedJackpotAmount = Math.round(
+                  (totalBetAmount * jackpotPercent) / 100
+                );
+
+                jackpotInfo = {
+                  isJackpot: true,
+                  jackpotAmount: calculatedJackpotAmount,
+                };
+
+                // Update daily jackpot tracking
+                const updatedCount = dailyJackpotCount + 1;
+                const updatedUsedNumbers = [
+                  ...usedJackpotNumbers,
+                  playerWinningNumber,
+                ];
+
+                localStorage.setItem(
+                  dailyJackpotKey,
+                  JSON.stringify({
+                    count: updatedCount,
+                    usedNumbers: updatedUsedNumbers,
+                    date: today,
+                  })
+                );
+              }
+            }
           }
         } catch (e) {
           // ignore parse error
@@ -673,7 +737,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   }, []);
 
   return (
-    <div className="flex flex-col justify-start items-center h-screen px-6 bg-[#09519E] relative overflow-hidden ">
+    <div className="flex flex-col justify-start items-center h-screen px-6 bg-[#09519E] relative overflow-hidden z-0">
       {/* Diamond Pattern Overlay */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
@@ -791,7 +855,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-col justify-between ml-10 z-50 items-center w-full h-full">
+      <div className="flex flex-col justify-between ml-10 z-10 items-center w-full h-full">
         {/* <GameStats
           calledNumbers={calledNumbers}
           calledCount={calledNumbers.length}
@@ -800,7 +864,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           selectedCardSetId={selectedCardSetId}
         /> */}
 
-        <div className="hidden sm:flex w-full h mt-4 justify-around items-start gap-4 ">
+        <div className="hidden sm:flex w-full h mt-4 justify-around items-start gap-4 z-10">
           <div className="h-full w-[250px] flex items-center justify-center">
             <NumberDisplay
               previousNumbers={[...calledNumbers].slice(-4).reverse().slice(1)}
@@ -815,7 +879,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             currentNumber={currentNumber}
           />
         </div>
-        <div className="flex w-full justify-start h-fit  items-start">
+        <div className="flex w-full justify-start h-fit  items-start z-10">
           {/* <div className="tot-bet-card ml-4">
             <h2 className="tot-bet-title font-potta-one text-2xl">
               Bonus Type
@@ -842,6 +906,50 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               width={200}
               height={200}
             />
+
+            {/* Jackpot Status Display */}
+            {jackpotEnabled &&
+              (() => {
+                const jackpotSettingsRaw =
+                  localStorage.getItem("jackpotSettings");
+                if (jackpotSettingsRaw) {
+                  try {
+                    const jackpotSettings = JSON.parse(jackpotSettingsRaw);
+                    const dailyNumber = Number(jackpotSettings.dailyNumber);
+                    const matchGap = Number(jackpotSettings.matchGap);
+                    const today = new Date().toDateString();
+                    const dailyJackpotKey = `dailyJackpot_${today}`;
+                    const dailyJackpotData =
+                      localStorage.getItem(dailyJackpotKey);
+
+                    let dailyJackpotCount = 0;
+                    if (dailyJackpotData) {
+                      try {
+                        const parsed = JSON.parse(dailyJackpotData);
+                        dailyJackpotCount = parsed.count || 0;
+                      } catch (e) {
+                        // ignore parse error
+                      }
+                    }
+
+                    const remainingJackpots = dailyNumber - dailyJackpotCount;
+                    const jackpotNumbers = Array.from(
+                      { length: dailyNumber },
+                      (_, i) => 1 + i * matchGap
+                    );
+
+                    return (
+                      <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
+                        {remainingJackpots}/{dailyNumber}
+                      </div>
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                }
+                return null;
+              })()}
+
             {!jackpotEnabled && (
               <>
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -876,7 +984,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             )}
           </div>
         </div>
-        <div className="flex w-full justify-around px items-center gap-4 mb-22 ">
+        <div className="flex w-full justify-around px items-center gap-4 mb-22 z-10">
           <div className="flex w-fit items-center gap-4 ">
             <div className="tot-bet-card">
               <h2 className="tot-bet-title font-potta-one text-2xl"> BET</h2>
