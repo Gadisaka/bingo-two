@@ -28,7 +28,7 @@ import { createReport } from "@/lib/api";
 import { WinningAmountDisplay } from "./WinningAmountDisplay";
 import { NumberDisplay } from "./NumberDisplay";
 import { GameStats } from "./GameStats";
-import { NumberBoard } from "./NumberBoard";
+import NumberBoard from "./NumberBoard";
 import { checkWinningPattern } from "@/lib/bingoUtils";
 
 interface BoardProps {
@@ -72,6 +72,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   }>(null);
   const [jackpotEnabled, setJackpotEnabled] = useState(true);
   const [audioFolder, setAudioFolder] = useState<string>("Gold");
+  const [gameSequenceNumber, setGameSequenceNumber] = useState(0);
 
   const currentCardSet = CARD_SETS[selectedCardSetId];
 
@@ -101,7 +102,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "start",
         "stop",
       ];
-      ["Gold", "Gold2"].forEach((folder) => {
+      ["Gold", "Gold2", "Gold3"].forEach((folder) => {
         numbers.forEach((num) => {
           const key = `${folder}/${num}`;
           if (!audioCache.current[key]) {
@@ -241,6 +242,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         return;
       }
 
+      // Increment game sequence number for jackpot tracking
+      setGameSequenceNumber((prev) => prev + 1);
+
       // Reset all game state
       setCalledNumbers([]);
       setCurrentNumber(null);
@@ -336,6 +340,20 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         if (winnersData) setWinners(JSON.parse(winnersData));
         if (auto) setAutoCall(auto === "true");
 
+        // Load game sequence number for jackpot tracking
+        const savedGameSequence = localStorage.getItem("gameSequenceNumber");
+        const savedGameSequenceDate = localStorage.getItem("gameSequenceDate");
+        const today = new Date().toDateString();
+
+        if (savedGameSequence && savedGameSequenceDate === today) {
+          setGameSequenceNumber(Number(savedGameSequence));
+        } else {
+          // Reset game sequence for new day
+          setGameSequenceNumber(0);
+          localStorage.setItem("gameSequenceNumber", "0");
+          localStorage.setItem("gameSequenceDate", today);
+        }
+
         // Load bonus settings
         const bonusTypeIndex = localStorage.getItem("bonusTypeIndex");
         const bonusAmountIndex = localStorage.getItem("bonusAmountIndex");
@@ -372,6 +390,11 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     const interval = setInterval(() => setIsVisible((v) => !v), 500);
     return () => clearInterval(interval);
   }, [currentNumber]);
+
+  // Save game sequence number to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("gameSequenceNumber", gameSequenceNumber.toString());
+  }, [gameSequenceNumber]);
 
   // Clean up old daily jackpot data
   const cleanupOldJackpotData = () => {
@@ -525,25 +548,16 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       }
     }
 
-    // Jackpot logic
+    // Jackpot logic - NEW GAME-BASED SYSTEM
     let jackpotInfo = { isJackpot: false, jackpotAmount: 0 };
     if (isWinner) {
-      // Find the player's winning number (the last called number in the winning cells)
-      const columns = ["B", "I", "N", "G", "O"];
-      const winningNumbers = result.winningCells
-        .map(({ row, col }) => card[columns[col]][row])
-        .filter((num) => num !== 0);
-      const playerWinningNumber = [...calledNumbers]
-        .reverse()
-        .find((num) => winningNumbers.includes(num));
-
       // Read jackpot settings
       const jackpotSettingsRaw = localStorage.getItem("jackpotSettings");
       if (jackpotSettingsRaw) {
         try {
           const jackpotSettings = JSON.parse(jackpotSettingsRaw);
           const dailyNumber = Number(jackpotSettings.dailyNumber); // Number of jackpots to give per day
-          const matchGap = Number(jackpotSettings.matchGap); // Gap between jackpot numbers
+          const matchGap = Number(jackpotSettings.matchGap); // Gap between jackpot games
           const jackpotStartingAmount = Number(
             jackpotSettings.jackpotStartingAmount ||
               jackpotSettings.jackpotAmount
@@ -558,7 +572,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           const isJackpotActive =
             jackpotEnabled === "On" && totalBetAmount >= jackpotStartingAmount;
 
-          if (isJackpotActive && typeof playerWinningNumber === "number") {
+          if (isJackpotActive) {
             // Get today's date as a string for tracking daily jackpots
             const today = new Date().toDateString();
 
@@ -566,13 +580,11 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             const dailyJackpotKey = `dailyJackpot_${today}`;
             const dailyJackpotData = localStorage.getItem(dailyJackpotKey);
             let dailyJackpotCount = 0;
-            let usedJackpotNumbers: number[] = [];
 
             if (dailyJackpotData) {
               try {
                 const parsed = JSON.parse(dailyJackpotData);
                 dailyJackpotCount = parsed.count || 0;
-                usedJackpotNumbers = parsed.usedNumbers || [];
               } catch (e) {
                 // ignore parse error, start fresh
               }
@@ -580,20 +592,12 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
             // Check if we haven't reached the daily jackpot limit
             if (dailyJackpotCount < dailyNumber) {
-              // Generate jackpot numbers based on match gap
-              // Start from 1 and increment by matchGap until we reach dailyNumber count
-              const jackpotNumbers: number[] = [];
-              for (let i = 0; i < dailyNumber; i++) {
-                jackpotNumbers.push(1 + i * matchGap);
-              }
+              // Check if current game number should get jackpot based on matchGap
+              // Game numbers that get jackpot: 1, 1+matchGap, 1+2*matchGap, 1+3*matchGap, etc.
+              const shouldGetJackpot =
+                (gameSequenceNumber - 1) % matchGap === 0;
 
-              // Check if the winning number is in the jackpot numbers and hasn't been used
-              const isJackpotNumber =
-                jackpotNumbers.includes(playerWinningNumber);
-              const isNumberAlreadyUsed =
-                usedJackpotNumbers.includes(playerWinningNumber);
-
-              if (isJackpotNumber && !isNumberAlreadyUsed) {
+              if (shouldGetJackpot) {
                 // Calculate jackpot amount as percentage of total bet
                 const calculatedJackpotAmount = Math.round(
                   (totalBetAmount * jackpotPercent) / 100
@@ -606,16 +610,11 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
                 // Update daily jackpot tracking
                 const updatedCount = dailyJackpotCount + 1;
-                const updatedUsedNumbers = [
-                  ...usedJackpotNumbers,
-                  playerWinningNumber,
-                ];
 
                 localStorage.setItem(
                   dailyJackpotKey,
                   JSON.stringify({
                     count: updatedCount,
-                    usedNumbers: updatedUsedNumbers,
                     date: today,
                   })
                 );
@@ -638,7 +637,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       //alfotal
     } else if (status === "not_now") {
       // Do not blacklist or mark as win, just show message
-      playAudio(`lose.mp3`);
+      playAudio(`pass.mp3`);
     } else {
       playAudio(`lose.mp3`);
       setBlacklistedCards((prev) => {
@@ -737,9 +736,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   }, []);
 
   return (
-    <div className="flex flex-col justify-start items-center h-screen px-6 bg-[#09519E] relative overflow-hidden z-0">
+    <div className="flex flex-col justify-start items-center h-screen px-6  relative overflow-hidden z-0">
       {/* Diamond Pattern Overlay */}
-      <svg
+      {/* <svg
         className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="xMidYMid slice"
@@ -762,7 +761,12 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#diamondPattern)" />
-      </svg>
+      </svg> */}
+      <img
+        src="/bingo-bg.jpg"
+        alt="bg"
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+      />
       <Dialog
         open={isModalOpen}
         onOpenChange={(open) => {
@@ -834,10 +838,19 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                   {getStatusConfig(checkResult.status).message}
                   {/* Jackpot message */}
                   {checkResult.status === "win" && jackpotResult?.isJackpot && (
-                    <div className="mt-2 text-2xl text-yellow-400 font-extrabold">
-                      🎉 JACKPOT WINNER!
-                      <br />
-                      Jackpot: {jackpotResult.jackpotAmount} Birr
+                    <div className="mt-2 p-3 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 rounded-lg border-2 border-yellow-400 shadow-lg">
+                      <div className="text-center">
+                        <div className="text-3xl mb-1">🎉</div>
+                        <div className="text-4xl font-black text-yellow-300 mb-1 drop-shadow-xl">
+                          JACKPOT WINNER!
+                        </div>
+                        <div className="text-xl font-bold text-yellow-200 mt-1 drop-shadow-lg">
+                          Jackpot Amount:
+                        </div>
+                        <div className="text-3xl font-black text-yellow-300 mt-1 drop-shadow-lg">
+                          {jackpotResult.jackpotAmount} Birr
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -933,14 +946,14 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                     }
 
                     const remainingJackpots = dailyNumber - dailyJackpotCount;
-                    const jackpotNumbers = Array.from(
-                      { length: dailyNumber },
-                      (_, i) => 1 + i * matchGap
-                    );
+                    const nextJackpotGame = dailyJackpotCount * matchGap + 1;
+                    const currentGameInfo = `Game ${gameSequenceNumber}`;
 
                     return (
                       <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
-                        {remainingJackpots}/{dailyNumber}
+                        <div>
+                          {remainingJackpots}/{dailyNumber}
+                        </div>
                       </div>
                     );
                   } catch (e) {

@@ -1,114 +1,163 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// @ts-ignore - Prisma type import issue
-import { Report } from "@prisma/client";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import Pagination from "@/components/Pagination";
-import ReportTable from "@/components/ReportTable";
+import CashierIncomeTable from "@/components/CashierIncomeTable";
 import DateRangePicker from "@/components/DateRangePicker";
 import SearchFilter from "@/components/SearchFilter";
 
+interface CashierIncome {
+  id: number;
+  name: string;
+  phone: string;
+  status: string;
+  dailyIncome: number;
+  weeklyIncome: number;
+  monthlyIncome: number;
+  totalIncome: number;
+  totalRevenue: number;
+  totalBetAmount: number;
+  totalRegisteredNumbers: number;
+  reportCount: number;
+}
+
+interface Totals {
+  dailyIncome: number;
+  weeklyIncome: number;
+  monthlyIncome: number;
+  totalIncome: number;
+  totalRevenue: number;
+  totalBetAmount: number;
+  totalRegisteredNumbers: number;
+}
+
 export default function ReportsPage() {
-  const [reports, setReports] = useState<Report[]>([]);
+  const [cashiers, setCashiers] = useState<CashierIncome[]>([]);
+  const [totals, setTotals] = useState<Totals>({
+    dailyIncome: 0,
+    weeklyIncome: 0,
+    monthlyIncome: 0,
+    totalIncome: 0,
+    totalRevenue: 0,
+    totalBetAmount: 0,
+    totalRegisteredNumbers: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({
     from: "",
     to: "",
   });
 
-  const fetchReports = async (page = 1, search = "", range = dateRange) => {
+  const fetchCashierIncomes = async (search = "", range = dateRange) => {
     try {
       setLoading(true);
       const query = new URLSearchParams({
-        page: page.toString(),
         search,
         from: range.from || "",
         to: range.to || "",
       }).toString();
 
-      const res = await fetch(`/api/reports?${query}`);
-      
+      const res = await fetch(`/api/reports/cashier-income?${query}`);
+
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("Reports API error:", res.status, errorText);
-        toast.error(`Failed to fetch reports: ${res.status}`);
-        setReports([]);
-        setTotalPages(1);
-        setCurrentPage(1);
+        console.error("Cashier income API error:", res.status, errorText);
+        toast.error(`Failed to fetch cashier income: ${res.status}`);
+        setCashiers([]);
+        setTotals({
+          dailyIncome: 0,
+          weeklyIncome: 0,
+          monthlyIncome: 0,
+          totalIncome: 0,
+          totalRevenue: 0,
+          totalBetAmount: 0,
+          totalRegisteredNumbers: 0,
+        });
         return;
       }
 
       const data = await res.json();
-      console.log("Reports data received:", data);
-      
-      if (data.reports && Array.isArray(data.reports)) {
-        setReports(data.reports);
-        setTotalPages(data.pagination?.totalPages || 1);
-        setCurrentPage(data.pagination?.page || 1);
+      console.log("Cashier income data received:", data);
+
+      if (data.cashiers && Array.isArray(data.cashiers)) {
+        setCashiers(data.cashiers);
+        setTotals(
+          data.totals || {
+            dailyIncome: 0,
+            weeklyIncome: 0,
+            monthlyIncome: 0,
+            totalIncome: 0,
+            totalRevenue: 0,
+            totalBetAmount: 0,
+            totalRegisteredNumbers: 0,
+          }
+        );
       } else {
-        console.error("Invalid reports data:", data);
-        toast.error("Invalid reports data received");
-        setReports([]);
-        setTotalPages(1);
-        setCurrentPage(1);
+        console.error("Invalid cashier income data:", data);
+        toast.error("Invalid cashier income data received");
+        setCashiers([]);
+        setTotals({
+          dailyIncome: 0,
+          weeklyIncome: 0,
+          monthlyIncome: 0,
+          totalIncome: 0,
+          totalRevenue: 0,
+          totalBetAmount: 0,
+          totalRegisteredNumbers: 0,
+        });
       }
     } catch (err) {
-      console.error("Error fetching reports:", err);
-      toast.error("Failed to fetch reports");
-      setReports([]);
-      setTotalPages(1);
-      setCurrentPage(1);
+      console.error("Error fetching cashier income:", err);
+      toast.error("Failed to fetch cashier income");
+      setCashiers([]);
+      setTotals({
+        dailyIncome: 0,
+        weeklyIncome: 0,
+        monthlyIncome: 0,
+        totalIncome: 0,
+        totalRevenue: 0,
+        totalBetAmount: 0,
+        totalRegisteredNumbers: 0,
+      });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReports();
+    fetchCashierIncomes();
   }, []);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    fetchReports(1, term);
-  };
-
-  const handlePageChange = (page: number) => {
-    fetchReports(page, searchTerm);
+    fetchCashierIncomes(term);
   };
 
   const handleDateChange = (range: { from: string; to: string }) => {
     setDateRange(range);
-    fetchReports(1, searchTerm, range);
+    fetchCashierIncomes(searchTerm, range);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-2xl font-bold">Report Management</h1>
+        <h1 className="text-2xl font-bold">Cashier Income Reports</h1>
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <SearchFilter
-          placeholder="Search by agent/cashier phone..."
+          placeholder="Search by cashier name or phone..."
           onSearch={handleSearch}
         />
         <DateRangePicker onChange={handleDateChange} />
       </div>
 
-      <ReportTable reports={reports} loading={loading} />
-
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
-      )}
+      <CashierIncomeTable
+        cashiers={cashiers}
+        totals={totals}
+        loading={loading}
+      />
     </div>
   );
 }

@@ -91,7 +91,7 @@ export default function CashierTable({
   };
 
   const handleTopUp = async () => {
-    if (!topUpCashier || topUpAmount <= 0) return;
+    if (!topUpCashier || topUpAmount === 0) return;
     setTopUpLoading(true);
     setTopUpError(null);
     setTopUpDebt(null);
@@ -103,18 +103,20 @@ export default function CashierTable({
       });
       const data = await res.json();
       if (!res.ok) {
-        setTopUpError(data.error || "Failed to top up wallet");
+        setTopUpError(data.error || "Failed to process wallet operation");
         if (data.error && data.error.includes("debt")) {
           setTopUpDebt(data.agent?.debtBalance ?? null);
         }
         return;
       }
-      toast.success("Wallet topped up successfully");
+
+      const operationType = topUpAmount > 0 ? "topped up" : "reduced";
+      toast.success(`Wallet ${operationType} successfully`);
       setTopUpModalOpen(false);
       setTopUpAmount(0);
       onRefresh();
     } catch {
-      setTopUpError("An error occurred while topping up wallet");
+      setTopUpError("An error occurred while processing wallet operation");
     } finally {
       setTopUpLoading(false);
     }
@@ -135,7 +137,7 @@ export default function CashierTable({
               <TableHead>AutoLock</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -208,13 +210,13 @@ export default function CashierTable({
                   <TableCell>
                     {new Date(cashier.createdAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="flex justify-end gap-2">
+                  <TableCell className="flex justify-center gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleViewDetail(cashier.id)}
                     >
-                      <Eye className="h-4 w-4" />
+                      <h1 className="text-blue-500">Edit</h1>
                     </Button>
                     <Button
                       variant="ghost"
@@ -231,8 +233,9 @@ export default function CashierTable({
                         setTopUpModalOpen(true);
                       }}
                       aria-label="Top up wallet"
+                      className="w-20"
                     >
-                      <Power className="h-4 w-4" />
+                      <h1 className="text-green-500">Top Up</h1>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -257,7 +260,9 @@ export default function CashierTable({
         <Dialog open={topUpModalOpen} onOpenChange={setTopUpModalOpen}>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
-              <DialogTitle>Top Up Wallet</DialogTitle>
+              <DialogTitle>
+                {topUpAmount >= 0 ? "Top Up Wallet" : "Reduce Wallet"}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -270,19 +275,29 @@ export default function CashierTable({
                 </div>
                 <Input
                   type="number"
-                  min="1"
                   step="0.01"
                   value={topUpAmount}
                   onChange={(e) => setTopUpAmount(Number(e.target.value))}
-                  placeholder="Enter amount"
+                  placeholder={
+                    topUpAmount >= 0
+                      ? "Enter amount to add"
+                      : "Enter amount to reduce"
+                  }
                   disabled={topUpLoading}
                 />
+                <div className="text-xs text-muted-foreground mt-1">
+                  {topUpAmount > 0
+                    ? "Positive amount adds to cashier wallet (percentage-based)"
+                    : topUpAmount < 0
+                    ? "Negative amount reduces cashier wallet by exact amount"
+                    : "Enter amount (positive or negative)"}
+                </div>
                 {topUpError && (
                   <div className="text-red-600 text-sm mt-2">{topUpError}</div>
                 )}
                 {topUpDebt !== null && (
                   <div className="text-yellow-700 text-sm mt-2">
-                    Agent Debt after top-up: ${topUpDebt.toFixed(2)}
+                    Agent Debt after operation: ${topUpDebt.toFixed(2)}
                   </div>
                 )}
               </div>
@@ -298,12 +313,17 @@ export default function CashierTable({
                 <Button
                   type="button"
                   onClick={handleTopUp}
-                  disabled={topUpAmount <= 0 || topUpLoading}
+                  disabled={topUpAmount === 0 || topUpLoading}
+                  variant={topUpAmount < 0 ? "destructive" : "default"}
                 >
                   {topUpLoading ? (
                     <span className="animate-spin mr-2">⏳</span>
                   ) : null}
-                  Top Up
+                  {topUpAmount > 0
+                    ? "Top Up"
+                    : topUpAmount < 0
+                    ? "Reduce"
+                    : "Process"}
                 </Button>
               </div>
             </div>

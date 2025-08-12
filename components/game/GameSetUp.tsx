@@ -812,6 +812,7 @@ export default function GameSetup({ onStart }: setUpProps) {
             >
               <option value="Gold">Amh 1</option>
               <option value="Gold2">Amh 2</option>
+              <option value="Gold3">Oro</option>
             </select>
           </div>
           <button

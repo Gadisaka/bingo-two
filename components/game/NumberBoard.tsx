@@ -1,33 +1,35 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { LETTER_COLORS, getLetterForNumber } from "./constants";
-import { useEffect, useState, useMemo } from "react";
 
 interface NumberBoardProps {
   calledNumbers: number[];
-  isVisible: boolean;
-  reset: boolean;
   currentNumber: number | null;
+  reset: boolean;
+  isVisible: boolean;
 }
 
-export const NumberBoard = ({
+export default function NumberBoard({
   calledNumbers,
-  isVisible,
-  reset,
   currentNumber,
-}: NumberBoardProps) => {
+  reset,
+  isVisible,
+}: NumberBoardProps) {
   const allNumbers = useMemo(
     () => Array.from({ length: 75 }, (_, i) => i + 1),
     []
   );
   const [highlightedNumbers, setHighlightedNumbers] = useState<number[]>([]);
   const [shuffleIntensity, setShuffleIntensity] = useState(0);
+  const [shufflingNumbers, setShufflingNumbers] = useState<number[]>([]);
 
   useEffect(() => {
     if (!reset) {
       setHighlightedNumbers([]);
       setShuffleIntensity(0);
+      setShufflingNumbers([]);
       return;
     }
 
@@ -36,24 +38,30 @@ export const NumberBoard = ({
       setShuffleIntensity((prev) => Math.min(prev + 0.1, 1));
     }, 100);
 
-    // Shuffling effect
+    // Shuffling effect with number changes
     const shuffleInterval = setInterval(() => {
       const count = Math.floor(5 + shuffleIntensity * 20); // 5-25 numbers flashing
       const newHighlighted = [];
+      const newShufflingNumbers = [];
 
       for (let i = 0; i < count; i++) {
         const randomIndex = Math.floor(Math.random() * 75);
         newHighlighted.push(allNumbers[randomIndex]);
+
+        // Generate random numbers for shuffling effect
+        const randomNumber = Math.floor(Math.random() * 75) + 1;
+        newShufflingNumbers.push(randomNumber);
       }
 
       setHighlightedNumbers(newHighlighted);
+      setShufflingNumbers(newShufflingNumbers);
     }, 100 - shuffleIntensity * 80); // Speed up from 100ms to 20ms
 
     return () => {
       clearInterval(intensityInterval);
       clearInterval(shuffleInterval);
     };
-  }, [reset, shuffleIntensity]);
+  }, [reset, shuffleIntensity, allNumbers]);
 
   const LETTER_BG_COLORS = {
     B: "bg-yellow-500",
@@ -79,7 +87,7 @@ export const NumberBoard = ({
       </div>
 
       <div className="grid grid-cols-15 gap-y-1">
-        {allNumbers.map((num) => {
+        {allNumbers.map((num, index) => {
           const letter = getLetterForNumber(num);
           const isCalled = calledNumbers.includes(num);
           const isCurrent = currentNumber === num;
@@ -96,6 +104,17 @@ export const NumberBoard = ({
           } else if (reset && isHighlighted) {
             textColor = "text-white";
           }
+
+          // Get the shuffling number for this position if it's highlighted
+          const shufflingNumber =
+            isHighlighted && shufflingNumbers.length > 0
+              ? shufflingNumbers[
+                  Math.min(
+                    index % shufflingNumbers.length,
+                    shufflingNumbers.length - 1
+                  )
+                ]
+              : num;
 
           return (
             <div
@@ -130,7 +149,9 @@ export const NumberBoard = ({
                     isCalled ? "bg-black/10" : "bg-white/20 blur-sm"
                   )}
                 />
-                <span className="relative stroke-white ">{num}</span>
+                <span className="relative stroke-white ">
+                  {reset && isHighlighted ? shufflingNumber : num}
+                </span>
               </div>
             </div>
           );
@@ -138,4 +159,4 @@ export const NumberBoard = ({
       </div>
     </div>
   );
-};
+}

@@ -74,13 +74,14 @@ export default function ReportTable({ reports, loading }: Props) {
             <TableHead>Admin Comm</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Cashier</TableHead>
+            <TableHead>Agent</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                {Array.from({ length: 13 }).map((_, j) => (
+                {Array.from({ length: 14 }).map((_, j) => (
                   <TableCell key={j}>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
@@ -90,7 +91,7 @@ export default function ReportTable({ reports, loading }: Props) {
           ) : reports.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={13}
+                colSpan={14}
                 className="text-center py-6 text-muted-foreground"
               >
                 No reports found
@@ -135,7 +136,17 @@ export default function ReportTable({ reports, loading }: Props) {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {(report as any).cashier?.name ?? report.cashierId}
+                    <div>
+                      <div className="font-medium">
+                        {(report as any).cashier?.name ?? report.cashierId}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Agent: {(report as any).cashier?.agent?.name ?? "N/A"}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {(report as any).cashier?.agent?.name ?? "N/A"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -150,7 +161,7 @@ export default function ReportTable({ reports, loading }: Props) {
                 <TableCell>${totals.cashierCommission.toFixed(2)}</TableCell>
                 <TableCell>${totals.agentCommission.toFixed(2)}</TableCell>
                 <TableCell>${totals.adminCommission.toFixed(2)}</TableCell>
-                <TableCell colSpan={2} />
+                <TableCell colSpan={3} />
               </TableRow>
             </>
           )}

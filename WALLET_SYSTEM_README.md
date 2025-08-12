@@ -2,35 +2,75 @@
 
 ## Overview
 
-This system implements a percentage-based wallet top-up mechanism where the input amount represents the user's share, and the recipient's wallet increases based on their percentage share.
+This system implements a percentage-based wallet top-up mechanism where the input amount represents the user's share, and the recipient's wallet increases based on their percentage share. **NEW: The system now supports negative amounts for reducing wallet balances using EXACT amounts.**
 
 ## How It Works
 
 ### Scenario 1: Admin → Agent
 
-**Input**: Admin enters a "top-up amount" (their share)
-**Calculation**: Agent wallet increases based on their `adminPercentage` field
-**Formula**: `Agent Wallet Increase = Topup Amount / (Admin Percentage / 100)`
-
-**Example**:
+**Top-Up (Positive Amount)**:
 
 - Admin inputs: 10 birr
 - Agent has: 10% share
 - Agent wallet increases by: 10 / (10/100) = 100 birr
 
+**Reduction (Negative Amount)**:
+
+- Admin inputs: -200 birr (negative)
+- Agent wallet decreases by: **exactly 200 birr** (no percentage calculation)
+
 ### Scenario 2: Agent → Cashier
 
-**Input**: Agent enters a "top-up amount" (their share)
-**Calculation**: Cashier wallet increases based on their `agentPercentage` field
-**Formula**: `Cashier Wallet Increase = Topup Amount / (Agent Percentage / 100)`
-**Deduction**: Agent wallet decreases by the entered amount
-
-**Example**:
+**Top-Up (Positive Amount)**:
 
 - Agent inputs: 20 birr
 - Cashier has: 5% share
 - Cashier wallet increases by: 20 / (5/100) = 400 birr
 - Agent wallet decreases by: 20 birr
+
+**Reduction (Negative Amount)**:
+
+- Agent inputs: -200 birr (negative)
+- Cashier wallet decreases by: **exactly 200 birr**
+- Agent wallet increases by: 200 × (5/100) = 10 birr (based on their percentage)
+
+## Negative Top-Up Operations (Exact Amount System)
+
+### When to Use Negative Amounts
+
+1. **Correcting Overpayments**: If you accidentally topped up too much, use a negative amount to reduce the balance
+2. **Adjusting Balances**: For accounting corrections or balance adjustments
+3. **Refunding Amounts**: When you need to return money to the source wallet
+
+### How Negative Amounts Work (NEW SYSTEM)
+
+**For Admin → Agent Reductions**:
+
+- **Input**: Enter a negative number (e.g., -200)
+- **Result**: Agent wallet decreases by exactly 200 birr
+- **No percentage calculation**: Simple, direct reduction
+
+**For Agent → Cashier Reductions**:
+
+- **Input**: Enter a negative number (e.g., -200)
+- **Result**:
+  - Cashier wallet decreases by exactly 200 birr
+  - Agent wallet increases by 200 × (agentPercentage/100)
+  - Money flows back to agent based on their percentage share
+
+### Key Benefits of Exact Amount System
+
+1. **No Manual Calculations**: Users don't need to calculate percentage-based reductions
+2. **Predictable Results**: Enter -200, wallet decreases by exactly 200
+3. **Intuitive Operation**: Negative amount = exact reduction, positive amount = percentage-based increase
+4. **Fair Returns**: Agent gets back money based on their percentage share
+
+### Safety Features
+
+- **Validation**: The system prevents reducing wallets below zero
+- **Balance Checks**: Ensures sufficient funds before reduction
+- **Transaction Safety**: All operations are wrapped in database transactions
+- **Clear Error Messages**: Shows current balance and required amount
 
 ## Database Schema
 
@@ -50,113 +90,115 @@ model Cashier {
 
 ## API Endpoints
 
-### 1. Admin → Agent Top-up
+### 1. Admin → Agent Top-up/Reduction
 
 **Endpoint**: `POST /api/agents/[id]/topup`
 **Access**: Admin only
 **Logic**:
 
-- Calculates agent wallet increase using `adminPercentage`
-- Implements debt-first payment system
+- **Top-ups**: Calculates agent wallet increase using `adminPercentage`
+- **Reductions**: Reduces agent wallet by exact amount (no percentage calculation)
+- Supports both positive (top-up) and negative (reduction) amounts
+- Implements debt-first payment system for top-ups
 - Returns calculation details and updated balances
 
-### 2. Agent → Cashier Top-up
+### 2. Agent → Cashier Top-up/Reduction
 
 **Endpoint**: `POST /api/cashiers/[id]/topup`
 **Access**: Agent only (for their own cashiers)
 **Logic**:
 
-- Calculates cashier wallet increase using `agentPercentage`
-- Validates agent has sufficient balance
-- Deducts from agent wallet
-- Implements debt-first payment system for cashier
+- **Top-ups**: Calculates cashier wallet increase using `agentPercentage`
+- **Reductions**: Reduces cashier wallet by exact amount, returns money to agent based on percentage
+- Supports both positive (top-up) and negative (reduction) amounts
+- Validates agent has sufficient balance for positive amounts
+- For negative amounts, returns money to agent wallet based on their percentage
+- Implements debt-first payment system for top-ups
 
-## Utility Functions
+## UI Components
 
-### `calculateWalletIncrease(inputAmount, percentage)`
+### Top-Up Modals
 
-Calculates the wallet increase based on percentage share.
+Both the Agent and Cashier top-up modals now support:
 
-### `validateWalletDeduction(currentBalance, requiredAmount, autoLock)`
+- **Positive amounts**: Add money to recipient wallet (percentage-based)
+- **Negative amounts**: Reduce recipient wallet by exact amount
+- **Dynamic titles**: "Top Up Wallet" vs "Reduce Wallet"
+- **Visual feedback**: Button color changes based on operation type
+- **Helpful text**: Explains percentage-based vs exact amount operations
 
-Validates if a wallet has sufficient balance for deduction.
+### Input Validation
 
-### `calculateDebtFirstPayment(amount, currentDebt, currentWallet)`
+- **Zero amounts**: Prevented (no effect)
+- **Positive amounts**: Add to wallet (percentage-based calculation)
+- **Negative amounts**: Reduce from wallet (exact amount reduction)
+- **Real-time feedback**: UI updates based on input value
 
-Implements debt-first payment logic (pays debt before adding to wallet).
+## Examples
 
-### `generateWalletMessage(operation, debtPaid, walletAdded)`
+### Admin Reducing Agent Wallet
 
-Generates informative messages about wallet operations.
-
-## Key Features
-
-1. **Percentage-Based Calculations**: All top-ups use percentage fields from the database
-2. **Debt-First Payment**: Prioritizes paying off debt before adding to wallet balance
-3. **Input Validation**: Validates percentages and amounts
-4. **Auto-Lock Support**: Respects auto-lock settings for insufficient funds
-5. **Transaction Safety**: Uses database transactions for data consistency
-6. **Detailed Responses**: Returns calculation details and formulas
-7. **Error Handling**: Comprehensive error handling with specific error messages
-
-## Example API Response
-
-```json
-{
-  "message": "Top-up successful: Debt fully paid off ($30.00) and wallet topped up with remaining amount ($70.00)",
-  "agent": {
-    /* updated agent data */
-  },
-  "debtPaid": 30,
-  "walletAdded": 70,
-  "calculationDetails": {
-    "adminInput": 10,
-    "adminPercentage": 10,
-    "agentWalletIncrease": 100,
-    "formula": "Wallet Increase = 10 / (10 / 100) = 100.00"
-  }
-}
+```
+Input: -200
+Result: Agent wallet decreases by exactly 200
+No percentage calculation needed
 ```
 
-## Testing
+### Agent Reducing Cashier Wallet
 
-Run the test file to see examples:
-
-```bash
-npx tsx lib/wallet-utils.test.ts
+```
+Input: -200
+Cashier percentage: 5%
+Result:
+- Cashier wallet decreases by exactly 200
+- Agent wallet increases by 200 × (5/100) = 10
 ```
 
-## Migration Notes
+### Agent Topping Up Cashier Wallet
 
-- **Existing Data**: The system will work with existing percentage values in the database
-- **Default Values**:
-  - `adminPercentage` defaults to 20%
-  - `agentPercentage` defaults to 0%
-- **Backward Compatibility**: Existing top-up functionality is enhanced, not replaced
-
-## Security Features
-
-- Role-based access control (Admin → Agent, Agent → Cashier)
-- Input validation and sanitization
-- Database transaction safety
-- JWT token verification
+```
+Input: 20
+Cashier percentage: 5%
+Result: Cashier wallet increases by 20 / (5/100) = 400
+```
 
 ## Error Handling
 
-The system handles various error scenarios:
+### Common Scenarios
 
-- Invalid percentages (≤ 0 or > 100)
-- Insufficient wallet balances
-- Invalid input amounts
-- Unauthorized access
-- Database errors
+1. **Insufficient Balance**: When reducing a wallet that doesn't have enough funds
+2. **Auto-lock Enabled**: Prevents operations that would create debt
+3. **Invalid Percentages**: Handles edge cases in percentage calculations
+4. **Transaction Failures**: Rollback on database errors
 
-## Future Enhancements
+### User Experience
 
-Potential improvements could include:
+- **Clear error messages**: Explain what went wrong and show current balances
+- **Suggestions**: Provide guidance on how to fix issues
+- **Debt information**: Show debt balances when relevant
+- **Success feedback**: Confirm successful operations with details
 
-- Percentage validation rules
-- Audit logging for all wallet operations
-- Batch top-up operations
-- Percentage change history tracking
-- Automated percentage calculations based on business rules
+## Best Practices
+
+### When Using Negative Amounts
+
+1. **Verify the amount**: Double-check before confirming reductions
+2. **Check current balances**: Ensure the recipient has sufficient funds
+3. **Document reasons**: Keep records of why reductions were made
+4. **Test with small amounts**: Start with small reductions to verify behavior
+
+### Understanding the System
+
+1. **Top-ups (positive)**: Use percentage-based calculations
+2. **Reductions (negative)**: Use exact amounts for predictable results
+3. **Agent returns**: Based on their percentage share for cashier reductions
+4. **Admin reductions**: Direct amount reduction, no percentage involved
+
+### Security Considerations
+
+1. **Role-based access**: Only authorized users can perform operations
+2. **Audit trail**: All operations are logged for accountability
+3. **Transaction safety**: Database operations are atomic
+4. **Validation**: Input validation prevents invalid operations
+
+This enhanced system provides flexibility for both adding and reducing wallet balances while maintaining the percentage-based calculation logic for top-ups and using exact amounts for reductions, ensuring clarity and ease of use.

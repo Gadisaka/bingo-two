@@ -18,8 +18,9 @@ export interface WalletValidationResult {
 /**
  * Calculate wallet increase based on percentage share
  * Formula: Wallet Increase = Input Amount / (Percentage / 100)
+ * For reductions, returns the exact amount to be reduced
  *
- * @param inputAmount - The amount input by the user (their share)
+ * @param inputAmount - The amount input by the user (their share), can be negative
  * @param percentage - The percentage share of the recipient
  * @returns WalletCalculationResult with calculation details
  */
@@ -31,6 +32,19 @@ export function calculateWalletIncrease(
     throw new Error("Invalid percentage. Must be between 0 and 100.");
   }
 
+  if (inputAmount < 0) {
+    // For reductions, return the exact amount to be reduced
+    return {
+      inputAmount,
+      percentage,
+      calculatedIncrease: Math.abs(inputAmount), // Exact amount to reduce
+      formula: `Wallet Reduction = Exact Amount: ${Math.abs(
+        inputAmount
+      ).toFixed(2)}`,
+    };
+  }
+
+  // For top-ups, use percentage-based calculation
   const calculatedIncrease = inputAmount / (percentage / 100);
 
   return {
@@ -45,9 +59,10 @@ export function calculateWalletIncrease(
 
 /**
  * Validate if a wallet has sufficient balance for a deduction
+ * Supports negative amounts for reducing wallet balances
  *
  * @param currentBalance - Current wallet balance
- * @param requiredAmount - Amount to be deducted
+ * @param requiredAmount - Amount to be deducted (can be negative for additions)
  * @param autoLock - Whether auto-lock is enabled
  * @returns WalletValidationResult with validation details
  */
@@ -58,10 +73,20 @@ export function validateWalletDeduction(
 ): WalletValidationResult {
   const remainingBalance = currentBalance - requiredAmount;
 
-  if (requiredAmount <= 0) {
+  if (requiredAmount === 0) {
     return {
       isValid: false,
-      error: "Invalid amount. Must be a positive number.",
+      error: "Invalid amount. Cannot be zero.",
+      currentBalance,
+      requiredAmount,
+      remainingBalance,
+    };
+  }
+
+  // For negative amounts (reducing wallet), we're actually adding to the source wallet
+  if (requiredAmount < 0) {
+    return {
+      isValid: true,
       currentBalance,
       requiredAmount,
       remainingBalance,
@@ -99,8 +124,9 @@ export function validateWalletDeduction(
 /**
  * Calculate debt-first payment allocation
  * Prioritizes paying off debt before adding to wallet balance
+ * For reductions, handles exact amount reductions
  *
- * @param amount - Total amount available
+ * @param amount - Total amount available (can be negative for reductions)
  * @param currentDebt - Current debt balance
  * @param currentWallet - Current wallet balance
  * @returns Object with new wallet and debt balances
@@ -114,6 +140,37 @@ export function calculateDebtFirstPayment(
   let newWalletBalance = currentWallet;
   let newDebtBalance = currentDebt;
 
+  // Handle negative amounts (wallet reduction)
+  if (amount < 0) {
+    const reductionAmount = Math.abs(amount);
+
+    // When reducing wallet, prioritize reducing wallet balance first
+    if (currentWallet >= reductionAmount) {
+      // Can fully reduce from wallet
+      newWalletBalance = currentWallet - reductionAmount;
+      return {
+        newWalletBalance,
+        newDebtBalance,
+        debtPaid: 0,
+        walletAdded: -reductionAmount, // Negative to indicate reduction
+      };
+    } else {
+      // Cannot fully reduce from wallet, will need to increase debt
+      const walletReduction = currentWallet;
+      const remainingReduction = reductionAmount - currentWallet;
+      newWalletBalance = 0;
+      newDebtBalance = currentDebt + remainingReduction;
+
+      return {
+        newWalletBalance,
+        newDebtBalance,
+        debtPaid: 0,
+        walletAdded: -walletReduction, // Negative to indicate reduction
+      };
+    }
+  }
+
+  // Handle positive amounts (wallet increase) - existing logic
   // If there's debt, pay it off first
   if (currentDebt > 0) {
     if (remainingAmount >= currentDebt) {
@@ -152,10 +209,11 @@ export function formatCurrency(amount: number, currency: string = "$"): string {
 
 /**
  * Generate informative message for wallet operations
+ * Supports both positive and negative operations
  *
  * @param operation - Type of operation (e.g., "topup", "deduction")
  * @param debtPaid - Amount of debt paid
- * @param walletAdded - Amount added to wallet
+ * @param walletAdded - Amount added to wallet (can be negative for reductions)
  * @returns Informative message string
  */
 export function generateWalletMessage(
@@ -163,7 +221,18 @@ export function generateWalletMessage(
   debtPaid: number,
   walletAdded: number
 ): string {
-  if (debtPaid > 0 && walletAdded > 0) {
+  if (walletAdded < 0) {
+    // Wallet reduction operation
+    if (debtPaid > 0) {
+      return `${operation} successful: Debt paid off (${formatCurrency(
+        debtPaid
+      )}) and wallet reduced by ${formatCurrency(Math.abs(walletAdded))}`;
+    } else {
+      return `${operation} successful: Wallet reduced by ${formatCurrency(
+        Math.abs(walletAdded)
+      )}`;
+    }
+  } else if (debtPaid > 0 && walletAdded > 0) {
     return `${operation} successful: Debt fully paid off (${formatCurrency(
       debtPaid
     )}) and wallet topped up with remaining amount (${formatCurrency(

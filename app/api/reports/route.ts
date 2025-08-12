@@ -371,8 +371,16 @@ export async function GET(req: NextRequest) {
   const where: any = {};
   if (search) {
     where.OR = [
-      { cashier: { phone: { contains: search } } },
-      { cashier: { agent: { phone: { contains: search } } } },
+      { cashier: { phone: { contains: search, mode: "insensitive" } } },
+      { cashier: { name: { contains: search, mode: "insensitive" } } },
+      {
+        cashier: {
+          agent: { phone: { contains: search, mode: "insensitive" } },
+        },
+      },
+      {
+        cashier: { agent: { name: { contains: search, mode: "insensitive" } } },
+      },
     ];
   }
 

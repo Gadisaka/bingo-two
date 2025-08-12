@@ -36,9 +36,9 @@ export async function POST(
     const data = await request.json();
     const { amount } = data;
 
-    if (!amount || typeof amount !== "number" || amount <= 0) {
+    if (!amount || typeof amount !== "number" || amount === 0) {
       return NextResponse.json(
-        { error: "Invalid amount. Must be a positive number." },
+        { error: "Invalid amount. Cannot be zero." },
         { status: 400 }
       );
     }
@@ -61,52 +61,112 @@ export async function POST(
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    // Calculate agent wallet increase based on percentage
-    const calculation = calculateWalletIncrease(amount, agent.adminPercentage);
+    const isReduction = amount < 0;
+    const operationType = isReduction ? "reduction" : "topup";
 
-    console.log(
-      `Admin topup calculation: amount=${amount}, adminPercentage=${agent.adminPercentage}%, agentWalletIncrease=${calculation.calculatedIncrease}`
-    );
+    if (isReduction) {
+      // For reductions, use exact amount logic
+      const reductionAmount = Math.abs(amount);
 
-    // Implement debt-first payment system
-    const debtFirstResult = calculateDebtFirstPayment(
-      calculation.calculatedIncrease,
-      agent.debtBalance,
-      agent.walletBalance
-    );
+      console.log(
+        `Admin reduction calculation: exact amount=${reductionAmount}, agent wallet will decrease by exactly ${reductionAmount}`
+      );
 
-    console.log(
-      `Agent topup - Final state: newWallet=${debtFirstResult.newWalletBalance}, newDebt=${debtFirstResult.newDebtBalance}`
-    );
+      // Check if agent has sufficient balance for reduction
+      if (agent.walletBalance < reductionAmount) {
+        return NextResponse.json(
+          {
+            error: `Insufficient agent wallet balance. Current balance: $${agent.walletBalance.toFixed(
+              2
+            )}, cannot reduce by $${reductionAmount.toFixed(2)}`,
+          },
+          { status: 400 }
+        );
+      }
 
-    // Update agent with debt-first payment logic
-    const updatedAgent = await prisma.agent.update({
-      where: { id: agentId },
-      data: {
-        walletBalance: debtFirstResult.newWalletBalance,
-        debtBalance: debtFirstResult.newDebtBalance,
-      },
-    });
+      // For admin reductions, the agent wallet decreases by the exact amount
+      // No percentage calculation needed for reductions
+      console.log(
+        `Agent reduction: agent wallet decreases by exactly ${reductionAmount}`
+      );
 
-    // Generate informative message
-    const message = generateWalletMessage(
-      "Top-up",
-      debtFirstResult.debtPaid,
-      debtFirstResult.walletAdded
-    );
+      // Update agent wallet (reduction)
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agentId },
+        data: {
+          walletBalance: {
+            decrement: reductionAmount,
+          },
+        },
+      });
 
-    return NextResponse.json({
-      message,
-      agent: updatedAgent,
-      debtPaid: debtFirstResult.debtPaid,
-      walletAdded: debtFirstResult.walletAdded,
-      calculationDetails: {
-        adminInput: amount,
-        adminPercentage: agent.adminPercentage,
-        agentWalletIncrease: calculation.calculatedIncrease,
-        formula: calculation.formula,
-      },
-    });
+      return NextResponse.json({
+        message: `Wallet reduction successful: Agent wallet decreased by $${reductionAmount.toFixed(
+          2
+        )}`,
+        agent: updatedAgent,
+        debtPaid: 0,
+        walletAdded: -reductionAmount,
+        calculationDetails: {
+          adminInput: amount,
+          adminPercentage: agent.adminPercentage,
+          agentWalletDecrease: reductionAmount,
+          formula: `Exact Amount Reduction: ${reductionAmount.toFixed(2)}`,
+          operationType: "reduction",
+        },
+      });
+    } else {
+      // For top-ups, use percentage-based logic (existing code)
+      const calculation = calculateWalletIncrease(
+        amount,
+        agent.adminPercentage
+      );
+
+      console.log(
+        `Admin topup calculation: amount=${amount}, adminPercentage=${agent.adminPercentage}%, agentWalletIncrease=${calculation.calculatedIncrease}`
+      );
+
+      // Implement debt-first payment system
+      const debtFirstResult = calculateDebtFirstPayment(
+        calculation.calculatedIncrease,
+        agent.debtBalance,
+        agent.walletBalance
+      );
+
+      console.log(
+        `Agent topup - Final state: newWallet=${debtFirstResult.newWalletBalance}, newDebt=${debtFirstResult.newDebtBalance}`
+      );
+
+      // Update agent with debt-first payment logic
+      const updatedAgent = await prisma.agent.update({
+        where: { id: agentId },
+        data: {
+          walletBalance: debtFirstResult.newWalletBalance,
+          debtBalance: debtFirstResult.newDebtBalance,
+        },
+      });
+
+      // Generate informative message
+      const message = generateWalletMessage(
+        "Top-up",
+        debtFirstResult.debtPaid,
+        debtFirstResult.walletAdded
+      );
+
+      return NextResponse.json({
+        message,
+        agent: updatedAgent,
+        debtPaid: debtFirstResult.debtPaid,
+        walletAdded: debtFirstResult.walletAdded,
+        calculationDetails: {
+          adminInput: amount,
+          adminPercentage: agent.adminPercentage,
+          agentWalletIncrease: calculation.calculatedIncrease,
+          formula: calculation.formula,
+          operationType: "topup",
+        },
+      });
+    }
   } catch (error) {
     console.error("Top-up error:", error);
 
@@ -119,7 +179,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: "Failed to top up wallet" },
+      { error: "Failed to process wallet operation" },
       { status: 500 }
     );
   }

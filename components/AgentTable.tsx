@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Eye, Key, Power } from "lucide-react";
+import { Edit, Key, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ChangePasswordModal from "./ChangePasswordModal";
 import ChangeStatusModal from "./ChangeStatusModal";
@@ -84,7 +84,7 @@ export default function AgentTable({
   };
 
   const handleTopUp = async () => {
-    if (!topUpAgent || topUpAmount <= 0) return;
+    if (!topUpAgent || topUpAmount === 0) return;
     setTopUpLoading(true);
     try {
       const res = await fetch(`/api/agents/${topUpAgent.id}/topup`, {
@@ -94,15 +94,17 @@ export default function AgentTable({
       });
       if (!res.ok) {
         const error = await res.json();
-        toast.error(error.error || "Failed to top up wallet");
+        toast.error(error.error || "Failed to process wallet operation");
         return;
       }
-      toast.success("Wallet topped up successfully");
+
+      const operationType = topUpAmount > 0 ? "topped up" : "reduced";
+      toast.success(`Wallet ${operationType} successfully`);
       setTopUpModalOpen(false);
       setTopUpAmount(0);
       onRefresh();
     } catch {
-      toast.error("An error occurred while topping up wallet");
+      toast.error("An error occurred while processing wallet operation");
     } finally {
       setTopUpLoading(false);
     }
@@ -122,7 +124,7 @@ export default function AgentTable({
             <TableHead>AutoLock</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created At</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -195,14 +197,14 @@ export default function AgentTable({
                 <TableCell>
                   {new Date(agent.createdAt).toLocaleDateString()}
                 </TableCell>
-                <TableCell className="flex justify-end gap-2">
+                <TableCell className="flex justify-center gap-2 ">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleViewDetail(agent.id)}
                     aria-label="View details"
                   >
-                    <Eye className="h-4 w-4" />
+                    <h1 className="text-blue-500">Edit</h1>
                   </Button>
                   <Button
                     variant="ghost"
@@ -213,7 +215,7 @@ export default function AgentTable({
                     }}
                     aria-label="Change password"
                   >
-                    <Key className="h-4 w-4" />
+                    <Key className="h-4 w-4 text-red-500" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -223,8 +225,9 @@ export default function AgentTable({
                       setTopUpModalOpen(true);
                     }}
                     aria-label="Top up wallet"
+                    className="w-20"
                   >
-                    <Power className="h-4 w-4" />
+                    <h1 className="text-green-500">Top Up</h1>
                   </Button>
                 </TableCell>
               </TableRow>
@@ -248,7 +251,9 @@ export default function AgentTable({
         <Dialog open={topUpModalOpen} onOpenChange={setTopUpModalOpen}>
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
-              <DialogTitle>Top Up Wallet</DialogTitle>
+              <DialogTitle>
+                {topUpAmount >= 0 ? "Top Up Wallet" : "Reduce Wallet"}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -258,13 +263,23 @@ export default function AgentTable({
                 </div>
                 <Input
                   type="number"
-                  min="1"
                   step="0.01"
                   value={topUpAmount}
                   onChange={(e) => setTopUpAmount(Number(e.target.value))}
-                  placeholder="Enter amount"
+                  placeholder={
+                    topUpAmount >= 0
+                      ? "Enter amount to add"
+                      : "Enter amount to reduce"
+                  }
                   disabled={topUpLoading}
                 />
+                <div className="text-xs text-muted-foreground mt-1">
+                  {topUpAmount > 0
+                    ? "Positive amount adds to agent wallet (percentage-based)"
+                    : topUpAmount < 0
+                    ? "Negative amount reduces agent wallet by exact amount"
+                    : "Enter amount (positive or negative)"}
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button
@@ -278,12 +293,17 @@ export default function AgentTable({
                 <Button
                   type="button"
                   onClick={handleTopUp}
-                  disabled={topUpAmount <= 0 || topUpLoading}
+                  disabled={topUpAmount === 0 || topUpLoading}
+                  variant={topUpAmount < 0 ? "destructive" : "default"}
                 >
                   {topUpLoading ? (
                     <span className="animate-spin mr-2">⏳</span>
                   ) : null}
-                  Top Up
+                  {topUpAmount > 0
+                    ? "Top Up"
+                    : topUpAmount < 0
+                    ? "Reduce"
+                    : "Process"}
                 </Button>
               </div>
             </div>
