@@ -10,7 +10,24 @@ export async function GET(
   try {
     const cashier = await prisma.cashier.findUnique({
       where: { id: parseInt((await params).id) },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        walletBalance: true,
+        debtBalance: true,
+        agentPercentage: true,
+        autoLock: true,
+        status: true,
+        createdAt: true,
+        agentId: true,
+        // Jackpot settings
+        jackpotEnabled: true,
+        jackpotPercent: true,
+        jackpotStartingAmount: true,
+        matchGap: true,
+        dailyNumber: true,
+        isClaimed: true,
         agent: {
           select: {
             id: true,
@@ -86,6 +103,44 @@ export async function PUT(
       }
     }
 
+    // Validate jackpot settings if provided
+    if (
+      data.jackpotPercent !== undefined &&
+      (data.jackpotPercent < 1 || data.jackpotPercent > 100)
+    ) {
+      return NextResponse.json(
+        { error: "Jackpot percent must be between 1 and 100" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.jackpotStartingAmount !== undefined &&
+      data.jackpotStartingAmount < 1
+    ) {
+      return NextResponse.json(
+        { error: "Jackpot starting amount must be at least 1" },
+        { status: 400 }
+      );
+    }
+
+    if (data.matchGap !== undefined && data.matchGap < 1) {
+      return NextResponse.json(
+        { error: "Match gap must be at least 1" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.dailyNumber !== undefined &&
+      (data.dailyNumber < 1 || data.dailyNumber > 75)
+    ) {
+      return NextResponse.json(
+        { error: "Daily number must be between 1 and 75" },
+        { status: 400 }
+      );
+    }
+
     // Update cashier with transaction to handle winCutTable
     const result = await prisma.$transaction(async (tx) => {
       const updatedCashier = await tx.cashier.update({
@@ -108,6 +163,22 @@ export async function PUT(
               ? Number(data.debtBalance)
               : undefined,
           status: data.status,
+          // Jackpot settings
+          jackpotEnabled: data.jackpotEnabled,
+          jackpotPercent:
+            data.jackpotPercent !== undefined
+              ? Number(data.jackpotPercent)
+              : undefined,
+          jackpotStartingAmount:
+            data.jackpotStartingAmount !== undefined
+              ? Number(data.jackpotStartingAmount)
+              : undefined,
+          matchGap:
+            data.matchGap !== undefined ? Number(data.matchGap) : undefined,
+          dailyNumber:
+            data.dailyNumber !== undefined
+              ? Number(data.dailyNumber)
+              : undefined,
         },
       });
 

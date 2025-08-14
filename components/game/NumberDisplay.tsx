@@ -9,6 +9,18 @@ interface NumberDisplayProps {
   currentNumber: number | null;
 }
 
+const getNumberColor = (number: number | null) => {
+  if (!number) return "bg-gray-400";
+
+  if (number <= 15) return "bg-blue-500"; // B column
+  if (number <= 30) return "bg-red-500"; // I column
+  if (number <= 45) return "bg-green-500"; // N column
+  if (number <= 60) return "bg-yellow-500"; // G column
+  if (number <= 75) return "bg-purple-500"; // O column
+
+  return "bg-gray-400";
+};
+
 export const NumberDisplay = ({
   previousNumbers,
   calledNumbers,
@@ -17,24 +29,49 @@ export const NumberDisplay = ({
   return (
     <div className="relative flex flex-col items-center">
       {/* Background Image Container */}
-      <div className="relative w-80 h-100">
+      <div className="relative w-80 h-80">
         <img
           src="/number_extract_bg.png"
           alt="bg"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-20 "
         />
 
         {/* Big Number Overlay - Centered in the circular part */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center z-10">
-            <div className="text-white text-[150px] mb-5 font-bold leading-none drop-shadow-2xl">
-              {currentNumber ? currentNumber : "?"}
+            {/* Layered circles */}
+            <div
+              key={currentNumber}
+              className="relative w-64 mb-4 h-64 flex items-center justify-center animate-slideInFromLeft"
+            >
+              {/* Outer colored circle */}
+              <div
+                className={`absolute inset-0 rounded-full ${getNumberColor(
+                  currentNumber
+                )}`}
+              ></div>
+              {/* Thin white circle */}
+              <div className="absolute inset-8 rounded-full bg-white"></div>
+              {/* Thin colored circle */}
+              <div
+                className={`absolute inset-9 rounded-full ${getNumberColor(
+                  currentNumber
+                )}`}
+              ></div>
+              {/* White background for number */}
+              <div className="absolute inset-11 rounded-full bg-white flex items-center justify-center">
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <span className="text-black text-9xl font-bold">
+                    {currentNumber ? currentNumber : "?"}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Counter Overlay - Positioned in the rectangular card part */}
-        <div className="absolute bottom-12 left-0 right-0 flex items-center justify-center pb-4">
+        <div className="absolute bottom-2 z-20 left-0 right-0 flex items-center justify-center pb-4">
           <div className="text-center z-10">
             <div className="text-white text-4xl font-bold drop-shadow-lg">
               {calledNumbers.length}

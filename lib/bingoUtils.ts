@@ -113,7 +113,8 @@ export function checkWinningPattern(
   const outerSquareCells: Array<{ row: number; col: number }> = [];
   let outerSquareWin = true;
 
-  // Top row
+  // Check all cells around the perimeter
+  // Top row (row 0)
   for (let col = 0; col < size; col++) {
     if (!isMarked(0, col)) {
       outerSquareWin = false;
@@ -122,9 +123,9 @@ export function checkWinningPattern(
     outerSquareCells.push({ row: 0, col });
   }
 
-  // Right column (excluding corners already counted)
+  // Right column (col 4) - excluding top and bottom corners already counted
   if (outerSquareWin) {
-    for (let row = 1; row < size; row++) {
+    for (let row = 1; row < size - 1; row++) {
       if (!isMarked(row, size - 1)) {
         outerSquareWin = false;
         break;
@@ -133,7 +134,7 @@ export function checkWinningPattern(
     }
   }
 
-  // Bottom row (excluding corners already counted)
+  // Bottom row (row 4) - excluding left and right corners already counted
   if (outerSquareWin) {
     for (let col = size - 2; col >= 0; col--) {
       if (!isMarked(size - 1, col)) {
@@ -144,9 +145,9 @@ export function checkWinningPattern(
     }
   }
 
-  // Left column (excluding corners already counted)
+  // Left column (col 0) - excluding top and bottom corners already counted
   if (outerSquareWin) {
-    for (let row = size - 2; row > 0; row--) {
+    for (let row = size - 2; row >= 1; row--) {
       if (!isMarked(row, 0)) {
         outerSquareWin = false;
         break;
@@ -196,4 +197,95 @@ export function checkWinningPattern(
     default:
       return { isWinner: totalWinningLines >= 1, winningCells };
   }
+}
+
+// Test function to verify all patterns work correctly
+export function testAllPatterns() {
+  console.log("🧪 Testing Bingo Pattern Recognition...\n");
+
+  // Test bingo card
+  const testCard: BingoCard = {
+    id: 1,
+    B: [1, 2, 3, 4, 5],
+    I: [16, 17, 18, 19, 20],
+    N: [31, 32, 0, 34, 35], // Free space at center (row 2, col 2)
+    G: [46, 47, 48, 49, 50],
+    O: [61, 62, 63, 64, 65],
+  };
+
+  // Test 1: Single line pattern
+  console.log("1️⃣ Testing 1line pattern:");
+  const calledNumbers1 = [1, 2, 3, 4, 5]; // Top row
+  const result1 = checkWinningPattern(testCard, calledNumbers1, "1line");
+  console.log(`   Top row called: ${result1.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Winning cells: ${result1.winningCells.length}`);
+
+  // Test 2: Two line pattern
+  console.log("\n2️⃣ Testing 2line pattern:");
+  const calledNumbers2 = [1, 2, 3, 4, 5, 16, 17, 18, 19, 20]; // Top two rows
+  const result2 = checkWinningPattern(testCard, calledNumbers2, "2line");
+  console.log(
+    `   Two rows called: ${result2.isWinner ? "✅ PASS" : "❌ FAIL"}`
+  );
+  console.log(`   Winning cells: ${result2.winningCells.length}`);
+
+  // Test 3: Diagonal pattern
+  console.log("\n3️⃣ Testing diagonal pattern:");
+  const calledNumbers3 = [1, 17, 0, 49, 65]; // Main diagonal
+  const result3 = checkWinningPattern(testCard, calledNumbers3, "diagonals");
+  console.log(`   Main diagonal: ${result3.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Winning cells: ${result3.winningCells.length}`);
+
+  // Test 4: X pattern
+  console.log("\n4️⃣ Testing X pattern:");
+  const calledNumbers4 = [1, 17, 0, 49, 65, 5, 19, 0, 47, 61]; // Both diagonals
+  const result4 = checkWinningPattern(testCard, calledNumbers4, "x");
+  console.log(`   X pattern: ${result4.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Winning cells: ${result4.winningCells.length}`);
+
+  // Test 5: Outer square pattern
+  console.log("\n5️⃣ Testing outer square pattern:");
+  const calledNumbers5 = [
+    1,
+    2,
+    3,
+    4,
+    5, // Top row
+    16,
+    20, // Left and right of I column
+    31,
+    35, // Left and right of N column
+    46,
+    50, // Left and right of G column
+    61,
+    62,
+    63,
+    64,
+    65, // Bottom row
+  ];
+  const result5 = checkWinningPattern(testCard, calledNumbers5, "outerSquare");
+  console.log(`   Outer square: ${result5.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Winning cells: ${result5.winningCells.length}`);
+  if (result5.isWinner) {
+    console.log(
+      `   Expected: 16 cells (perimeter), Got: ${result5.winningCells.length}`
+    );
+    console.log("   Winning cells:", result5.winningCells);
+  }
+
+  // Test 6: Inner square pattern
+  console.log("\n6️⃣ Testing inner square pattern:");
+  const calledNumbers6 = [17, 18, 19, 32, 34, 47, 48, 49]; // 3x3 center (excluding free space)
+  const result6 = checkWinningPattern(testCard, calledNumbers6, "innerSquare");
+  console.log(`   Inner square: ${result6.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Winning cells: ${result6.winningCells.length}`);
+
+  // Test 7: Three line pattern
+  console.log("\n7️⃣ Testing 3line pattern:");
+  const calledNumbers7 = [1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35]; // Top three rows
+  const result7 = checkWinningPattern(testCard, calledNumbers7, "3line");
+  console.log(`   Three rows: ${result7.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Winning cells: ${result7.winningCells.length}`);
+
+  console.log("\n🎯 Testing complete!");
 }

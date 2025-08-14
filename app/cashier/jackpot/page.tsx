@@ -1,47 +1,100 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/AuthContext";
+import { toast } from "sonner";
 
 export default function JackpotPage() {
+  const { user } = useAuth();
   const [jackpotStartingAmount, setJackpotStartingAmount] = useState(200);
   const [dailyNumber, setDailyNumber] = useState(25);
   const [matchGap, setMatchGap] = useState(5);
   const [isClaimed, setIsClaimed] = useState(false);
-  const [jackpotEnabled, setJackpotEnabled] = useState("On");
+  const [jackpotEnabled, setJackpotEnabled] = useState("Off");
   const [jackpotPercent, setJackpotPercent] = useState(25);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem("jackpotSettings");
-    if (saved) {
-      const data = JSON.parse(saved);
-      setJackpotStartingAmount(
-        data.jackpotStartingAmount || data.jackpotAmount || 200
-      );
-      setDailyNumber(data.dailyNumber);
-      setMatchGap(data.matchGap);
-      setIsClaimed(data.isClaimed);
-      setJackpotEnabled(data.jackpotEnabled);
-      setJackpotPercent(data.jackpotPercent);
+    if (user?.id) {
+      fetchJackpotSettings();
     }
-  }, []);
+  }, [user]);
 
-  const handleSave = () => {
-    setLoading(true);
-    const data = {
-      jackpotStartingAmount,
-      dailyNumber,
-      matchGap,
-      isClaimed,
-      jackpotEnabled,
-      jackpotPercent,
-    };
-    localStorage.setItem("jackpotSettings", JSON.stringify(data));
-    setTimeout(() => {
-      alert("✅ Jackpot settings saved!");
-      setLoading(false);
-    }, 300);
+  const fetchJackpotSettings = async () => {
+    try {
+      const response = await fetch(`/api/cashiers/${user.id}/jackpot`);
+      if (response.ok) {
+        const data = await response.json();
+        setJackpotStartingAmount(data.jackpotStartingAmount || 200);
+        setDailyNumber(data.dailyNumber || 25);
+        setMatchGap(data.matchGap || 5);
+        setIsClaimed(data.isClaimed || false);
+        setJackpotEnabled(data.jackpotEnabled || "Off");
+        setJackpotPercent(data.jackpotPercent || 25);
+      } else {
+        console.error("Failed to fetch jackpot settings");
+        toast.error("Failed to load jackpot settings");
+      }
+    } catch (error) {
+      console.error("Error fetching jackpot settings:", error);
+      toast.error("Failed to load jackpot settings");
+    } finally {
+      setInitialLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!user?.id) {
+      toast.error("User not authenticated");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = {
+        jackpotStartingAmount,
+        dailyNumber,
+        matchGap,
+        isClaimed,
+        jackpotEnabled,
+        jackpotPercent,
+      };
+
+      const response = await fetch(`/api/cashiers/${user.id}/jackpot`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        toast.success("Jackpot settings saved!");
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to save jackpot settings");
+      }
+    } catch (error) {
+      console.error("Error saving jackpot settings:", error);
+      toast.error("Failed to save jackpot settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex justify-center items-start bg-gray-50 py-10">
+        <div className="w-full max-w-md bg-white p-6 shadow rounded">
+          <div className="flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-2">Loading jackpot settings...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex justify-center items-start bg-gray-50 py-10">
@@ -122,7 +175,7 @@ export default function JackpotPage() {
         {/* Buttons */}
         <div className="flex justify-between">
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50"
             onClick={handleSave}
             disabled={loading}
           >

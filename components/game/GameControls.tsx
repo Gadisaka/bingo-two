@@ -69,19 +69,35 @@ export default function GameControls({
     <div className="p-4 w-fit">
       <div className="space-y-2 flex gap-4 md:gap-20 flex-col md:flex-row">
         {/* <div className="flex flex-col gap-2 justify-center items-center w-full"> */}
-        <div className="flex gap-4">
+        <div className="flex ">
           <button
-            className="yellow-card-button px-6 py-3 text-2xl "
+            className="relative text-white cursor-pointer font-bold text-3xl h-16 w-48 px-6 py-3"
             onClick={handleCheckCard}
           >
-            CHECK
+            <img
+              src="/button_bg.png"
+              alt="bg"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <span className="relative z-10">CHECK</span>
           </button>
           <button
-            className="yellow-card-button px-6 py-3 text-2xl"
+            className={`relative cursor-pointer text-white font-bold text-3xl h-16 w-48 px-6 py-3 ${
+              gameOver && "text-white"
+            }`}
             onClick={toggleAutoPlay}
             disabled={gameOver}
           >
-            {isAutoPlaying ? <>PAUSE</> : <>START</>}
+            <img
+              src="/button_bg.png"
+              alt="bg"
+              className={`absolute inset-0 w-full h-full object-cover ${
+                gameOver ? "grayscale" : ""
+              }`}
+            />
+            <span className="relative z-10">
+              {isAutoPlaying ? <>PAUSE</> : <>START</>}
+            </span>
           </button>
 
           {/* <button
@@ -96,18 +112,32 @@ export default function GameControls({
               </button> */}
 
           <button
-            className="yellow-card-button px-6 py-3 text-2xl "
+            className="relative text-white cursor-pointer font-bold text-3xl h-16 w-48 px-6 py-3"
             onClick={handleResetConfirm}
           >
-            RESTART
+            <img
+              src="/button_bg.png"
+              alt="bg"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <span className="relative z-10">RESTART</span>
           </button>
 
           <button
-            className="yellow-card-button px-6 py-3 text-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`relative cursor-pointer text-white font-bold text-3xl h-16 w-48 px-6 py-3 ${
+              isAutoPlaying && "text-white"
+            }`}
             disabled={isAutoPlaying}
             onClick={shuffel}
           >
-            SHUFFLE
+            <img
+              src="/button_bg.png"
+              alt="bg"
+              className={`absolute inset-0 w-full h-full object-cover ${
+                isAutoPlaying ? "grayscale " : ""
+              }`}
+            />
+            <span className="relative z-10"> SHUFFLE</span>
           </button>
         </div>
         {/* <div className="flex flex-col gap-2">

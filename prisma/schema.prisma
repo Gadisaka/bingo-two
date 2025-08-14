@@ -53,6 +53,14 @@ model Cashier {
   agent           Agent         @relation(fields: [agentId], references: [id])
   reports         Report[]
   winCutTables    WinCutTable[]
+  
+  // Jackpot settings
+  jackpotEnabled        String  @default("Off") // "On" or "Off"
+  jackpotPercent        Float   @default(25)
+  jackpotStartingAmount Float   @default(200)
+  matchGap             Int     @default(5)
+  dailyNumber          Int     @default(25)
+  isClaimed            Boolean @default(false)
 
   @@index([phone])
   @@index([agentId])

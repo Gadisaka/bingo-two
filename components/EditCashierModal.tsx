@@ -57,6 +57,24 @@ const cashierSchema = z.object({
   ),
   winCutTable: z.array(winCutTableSchema).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+  // Jackpot settings
+  jackpotEnabled: z.string().optional(),
+  jackpotPercent: z.preprocess(
+    (val) => Number(val),
+    z.number().min(1).max(100).optional()
+  ),
+  jackpotStartingAmount: z.preprocess(
+    (val) => Number(val),
+    z.number().min(1).optional()
+  ),
+  matchGap: z.preprocess(
+    (val) => Number(val),
+    z.number().min(1).optional()
+  ),
+  dailyNumber: z.preprocess(
+    (val) => Number(val),
+    z.number().min(1).max(75).optional()
+  ),
 });
 
 interface EditCashierModalProps {
@@ -89,6 +107,12 @@ export default function EditCashierModal({
           percentAbove30: w.percentAbove30,
         })) ?? [],
       status: cashier.status,
+      // Jackpot settings
+      jackpotEnabled: cashier.jackpotEnabled ?? "Off",
+      jackpotPercent: cashier.jackpotPercent ?? 25,
+      jackpotStartingAmount: cashier.jackpotStartingAmount ?? 200,
+      matchGap: cashier.matchGap ?? 5,
+      dailyNumber: cashier.dailyNumber ?? 25,
     },
   });
 
@@ -255,6 +279,118 @@ export default function EditCashierModal({
                 </FormItem>
               )}
             />
+
+            {/* Jackpot Settings Section */}
+            <div className="space-y-4 border rounded-lg p-4">
+              <h3 className="text-lg font-medium">Jackpot Settings</h3>
+              
+              <FormField
+                control={form.control}
+                name="jackpotEnabled"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jackpot Status</FormLabel>
+                    <FormControl>
+                      <select
+                        className="w-full border px-3 py-2 rounded"
+                        value={field.value}
+                        onChange={field.onChange}
+                      >
+                        <option value="Off">Off</option>
+                        <option value="On">On</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="jackpotPercent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jackpot Percent (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder="25"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="jackpotStartingAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Minimum Total Bet to Activate Jackpot</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="200"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="matchGap"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jackpot Match Gap</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="5"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dailyNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Daily Jackpot Count</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="75"
+                        placeholder="25"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="winCutTable"

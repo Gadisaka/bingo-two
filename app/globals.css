@@ -1,6 +1,22 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Custom slide-in animation */
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%) scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slideInFromLeft {
+  animation: slideInFromLeft 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -240,7 +256,6 @@
   border-radius: 4px;
   text-shadow: 1px 1px 2px black;
 }
-
 /* Container */
 .tot-bet-card {
   display: flex;

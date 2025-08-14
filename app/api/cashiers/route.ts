@@ -36,7 +36,24 @@ export async function GET(req: NextRequest) {
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        walletBalance: true,
+        debtBalance: true,
+        agentPercentage: true,
+        autoLock: true,
+        status: true,
+        createdAt: true,
+        agentId: true,
+        // Jackpot settings
+        jackpotEnabled: true,
+        jackpotPercent: true,
+        jackpotStartingAmount: true,
+        matchGap: true,
+        dailyNumber: true,
+        isClaimed: true,
         winCutTables: true,
       },
     }),
@@ -115,6 +132,13 @@ export async function POST(req: NextRequest) {
           agentPercentage: Number(data.agentPercentage || 0),
           autoLock: autoLock,
           debtBalance: 0,
+          // Jackpot settings from form or defaults
+          jackpotEnabled: data.jackpotEnabled || "Off",
+          jackpotPercent: Number(data.jackpotPercent || 25),
+          jackpotStartingAmount: Number(data.jackpotStartingAmount || 200),
+          matchGap: Number(data.matchGap || 5),
+          dailyNumber: Number(data.dailyNumber || 25),
+          isClaimed: false,
         },
       });
 

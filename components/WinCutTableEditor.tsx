@@ -52,11 +52,29 @@ export default function WinCutTableEditor({
   const updateEntry = (
     index: number,
     field: keyof WinCutTableEntry,
-    value: number
+    value: string
   ) => {
     const updatedEntries = entries.map((entry, i) => {
       if (i === index) {
-        return { ...entry, [field]: value };
+        // Handle empty string inputs properly
+        if (value === "") {
+          return { ...entry, [field]: undefined };
+        }
+
+        // Parse the value based on field type
+        let parsedValue: number;
+        if (field === "percent5to30" || field === "percentAbove30") {
+          parsedValue = parseFloat(value);
+        } else {
+          parsedValue = parseInt(value);
+        }
+
+        // Only update if parsing was successful
+        if (!isNaN(parsedValue)) {
+          return { ...entry, [field]: parsedValue };
+        }
+
+        return entry;
       }
       return entry;
     });
@@ -97,13 +115,9 @@ export default function WinCutTableEditor({
                   <Input
                     type="number"
                     min="1"
-                    value={entry.minCards ?? 1}
+                    value={entry.minCards ?? ""}
                     onChange={(e) =>
-                      updateEntry(
-                        index,
-                        "minCards",
-                        parseInt(e.target.value) || 1
-                      )
+                      updateEntry(index, "minCards", e.target.value)
                     }
                     className="w-28"
                   />
@@ -112,13 +126,9 @@ export default function WinCutTableEditor({
                   <Input
                     type="number"
                     min="1"
-                    value={entry.maxCards ?? 1}
+                    value={entry.maxCards ?? ""}
                     onChange={(e) =>
-                      updateEntry(
-                        index,
-                        "maxCards",
-                        parseInt(e.target.value) || 1
-                      )
+                      updateEntry(index, "maxCards", e.target.value)
                     }
                     className="w-28"
                   />
@@ -129,13 +139,9 @@ export default function WinCutTableEditor({
                     min="0"
                     max="100"
                     step="0.1"
-                    value={entry.percent5to30 ?? 0}
+                    value={entry.percent5to30 ?? ""}
                     onChange={(e) =>
-                      updateEntry(
-                        index,
-                        "percent5to30",
-                        parseFloat(e.target.value) || 0
-                      )
+                      updateEntry(index, "percent5to30", e.target.value)
                     }
                     className="w-32"
                   />
@@ -146,13 +152,9 @@ export default function WinCutTableEditor({
                     min="0"
                     max="100"
                     step="0.1"
-                    value={entry.percentAbove30 ?? 0}
+                    value={entry.percentAbove30 ?? ""}
                     onChange={(e) =>
-                      updateEntry(
-                        index,
-                        "percentAbove30",
-                        parseFloat(e.target.value) || 0
-                      )
+                      updateEntry(index, "percentAbove30", e.target.value)
                     }
                     className="w-32"
                   />

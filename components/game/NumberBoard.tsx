@@ -77,7 +77,7 @@ export default function NumberBoard({
         {["B", "I", "N", "G", "O"].map((letter) => (
           <div
             key={letter}
-            className="w-[50px] h-[50px]  bg-white ring-8 ring-orange-500 flex items-center justify-center font-bold "
+            className="w-[50px] h-[50px]  bg-white ring-4 ring-orange-700 flex items-center justify-center font-bold "
           >
             <h1 className=" bg-white  text-gray-800 font-bold text-2xl font-potta-one flex items-center justify-center ">
               {letter}
@@ -138,7 +138,7 @@ export default function NumberBoard({
                 className={cn(
                   "relative w-[50px] h-[50px] bg-gray-200 flex text-4xl items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
                   isCalled
-                    ? "ring-4 ring-orange-500 text-black shadow-lg"
+                    ? "ring-2 ring-orange-700 text-black shadow-lg"
                     : " text-gray-500 ",
                   isCurrent && "animate-bounce"
                 )}

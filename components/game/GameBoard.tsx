@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
@@ -73,6 +74,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   const [jackpotEnabled, setJackpotEnabled] = useState(true);
   const [audioFolder, setAudioFolder] = useState<string>("Gold");
   const [gameSequenceNumber, setGameSequenceNumber] = useState(0);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const currentCardSet = CARD_SETS[selectedCardSetId];
 
@@ -267,12 +269,14 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   }, [calledNumbers.length, selectedCards.length, betAmount, winningAmount]);
 
   const resetGame = useCallback(async () => {
-    const confirmed = window.confirm("Are you sure you want to start new game");
-    if (!confirmed) return;
-
+    setShowResetConfirm(false);
     await startNewGame(); // ensure the report is saved and state is reset first
     onBackToSetup(); // go back to setup only after everything finishes
   }, [onBackToSetup, startNewGame]);
+
+  const openResetConfirm = useCallback(() => {
+    setShowResetConfirm(true);
+  }, []);
 
   const toggleAutoCall = useCallback(() => {
     if (autoCall) {
@@ -999,16 +1003,34 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         </div>
         <div className="flex w-full justify-around px items-center gap-4 mb-22 z-10">
           <div className="flex w-fit items-center gap-4 ">
-            <div className="tot-bet-card">
-              <h2 className="tot-bet-title font-potta-one text-2xl"> BET</h2>
-              <div className="tot-bet-display-wrapper">
-                <div className="tot-bet-display">{betAmount}Birr</div>
+            <div className="flex flex-col items-center justify-center">
+              <h2 className="font-bold text-3xl text-white mb-2 drop-shadow-lg">
+                BET
+              </h2>
+              <div className="relative">
+                <img
+                  src="/big_money.png"
+                  alt="bg"
+                  className="w-48 h-16 object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl mb-1 drop-shadow-lg">
+                  {betAmount} Birr
+                </div>
               </div>
             </div>
-            <div className="tot-bet-card">
-              <h2 className="tot-bet-title font-potta-one text-2xl">TOT BET</h2>
-              <div className="tot-bet-display-wrapper">
-                <div className="tot-bet-display">{winningAmount}Birr</div>
+            <div className="flex flex-col items-center">
+              <h2 className="font-bold text-3xl text-white mb-2 drop-shadow-lg">
+                TOT BET
+              </h2>
+              <div className="relative">
+                <img
+                  src="/big_money.png"
+                  alt="bg"
+                  className="w-48 h-16 object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl mb-1 drop-shadow-lg">
+                  {winningAmount} Birr
+                </div>
               </div>
             </div>
           </div>
@@ -1026,7 +1048,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             callSpeed={callSpeed}
             handleSpeedChange={updateCallSpeed}
             gameOver={gameOver}
-            handleResetConfirm={resetGame}
+            handleResetConfirm={openResetConfirm}
             handleCheckCard={() => {
               if (autoCall) {
                 toggleAutoCall(); // stop auto play
@@ -1039,6 +1061,53 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           {/* <WinningAmountDisplay amount={winningAmount} /> */}
         </div>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/5 bg-opacity-50 h-full w-full flex items-center justify-center z-50">
+          <div className="relative w-full h-full">
+            <img
+              src="/small_bg.png"
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            {/* Content overlay */}[{" "}
+            <div className="absolute inset-0 flex flex-col items-center h-[500px] justify-between p-6 z-10">
+              ]{" "}
+              <div className="text-center mb-6">
+                <p className="text-white text-6xl font-bold drop-shadow-lg">
+                  ARE YOU SURE?
+                </p>
+              </div>
+              {/* Buttons */}
+              <div className="flex justify-between items-center w-[400px]">
+                <button
+                  className="relative px-8 py-4 text-4xl w-40 cursor-pointer font-bold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 shadow-lg overflow-hidden"
+                  onClick={() => setShowResetConfirm(false)}
+                >
+                  <img
+                    src="/button_bg.png"
+                    alt="bg"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <span className="relative z-10">NO</span>
+                </button>
+                <button
+                  className="relative px-8 py-4 text-4xl w-40 cursor-pointer font-bold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 shadow-lg overflow-hidden"
+                  onClick={resetGame}
+                >
+                  <img
+                    src="/button_bg.png"
+                    alt="bg"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <span className="relative z-10">YES</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

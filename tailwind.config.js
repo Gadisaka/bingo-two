@@ -102,12 +102,26 @@ module.exports = {
           "0%": { transform: "rotate(0deg)" },
           "100%": { transform: "rotate(360deg)" },
         },
+        // Add slide-in from left animation
+        slideInFromLeft: {
+          "0%": {
+            transform: "translateX(-100%) scale(0.8)",
+            opacity: "0",
+          },
+          "100%": {
+            transform: "translateX(0) scale(1)",
+            opacity: "1",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         // Add custom rotate animation
         "rotate-continuous": "rotate-continuous 1s linear infinite",
+        // Add slide-in from left animation
+        slideInFromLeft:
+          "slideInFromLeft 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
       },
       boxShadow: {
         sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
