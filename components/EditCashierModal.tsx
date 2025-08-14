@@ -67,10 +67,7 @@ const cashierSchema = z.object({
     (val) => Number(val),
     z.number().min(1).optional()
   ),
-  matchGap: z.preprocess(
-    (val) => Number(val),
-    z.number().min(1).optional()
-  ),
+  matchGap: z.preprocess((val) => Number(val), z.number().min(1).optional()),
   dailyNumber: z.preprocess(
     (val) => Number(val),
     z.number().min(1).max(75).optional()
@@ -283,7 +280,7 @@ export default function EditCashierModal({
             {/* Jackpot Settings Section */}
             <div className="space-y-4 border rounded-lg p-4">
               <h3 className="text-lg font-medium">Jackpot Settings</h3>
-              
+
               <FormField
                 control={form.control}
                 name="jackpotEnabled"
@@ -318,7 +315,7 @@ export default function EditCashierModal({
                         max="100"
                         placeholder="25"
                         {...field}
-                        value={field.value || ""}
+                        value={String(field.value || "")}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
@@ -339,7 +336,7 @@ export default function EditCashierModal({
                         min="1"
                         placeholder="200"
                         {...field}
-                        value={field.value || ""}
+                        value={String(field.value || "")}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
@@ -360,7 +357,7 @@ export default function EditCashierModal({
                         min="1"
                         placeholder="5"
                         {...field}
-                        value={field.value || ""}
+                        value={String(field.value || "")}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
@@ -382,7 +379,7 @@ export default function EditCashierModal({
                         max="75"
                         placeholder="25"
                         {...field}
-                        value={field.value || ""}
+                        value={String(field.value || "")}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
