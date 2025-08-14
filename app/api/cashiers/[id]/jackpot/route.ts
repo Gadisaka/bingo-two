@@ -4,7 +4,7 @@ import { verifyJwt } from "@/lib/auth";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const token = req.cookies.get("auth_token")?.value;
   if (!token)
@@ -15,7 +15,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cashierId = parseInt(params.id);
+  const cashierId = parseInt((await params).id);
   if (isNaN(cashierId)) {
     return NextResponse.json({ error: "Invalid cashier ID" }, { status: 400 });
   }
@@ -50,7 +50,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const token = req.cookies.get("auth_token")?.value;
   if (!token)
@@ -61,7 +61,7 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cashierId = parseInt(params.id);
+  const cashierId = parseInt((await params).id);
   if (isNaN(cashierId)) {
     return NextResponse.json({ error: "Invalid cashier ID" }, { status: 400 });
   }
