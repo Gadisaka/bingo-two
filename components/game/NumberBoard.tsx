@@ -143,12 +143,12 @@ export default function NumberBoard({
                   isCurrent && "animate-bounce"
                 )}
               >
-                <div
+                {/* <div
                   className={cn(
                     "absolute w-[60%] h-[60%] -top-[20%] -left-[20%] rounded-full pointer-events-none",
                     isCalled ? "bg-black/10" : "bg-white/20 blur-sm"
                   )}
-                />
+                /> */}
                 <span className="relative font-bold drop-shadow-[1px_1px_2px_rgba(0,0,0,0.3)]">
                   {reset && isHighlighted ? shufflingNumber : num}
                 </span>
