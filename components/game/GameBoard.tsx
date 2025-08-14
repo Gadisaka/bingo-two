@@ -103,8 +103,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "shuffle",
         "start",
         "stop",
+        "pass",
       ];
-      ["Gold", "Gold2", "Gold3"].forEach((folder) => {
+      ["Gold", "Gold2", "Gold3", "Gold4", "Gold5"].forEach((folder) => {
         numbers.forEach((num) => {
           const key = `${folder}/${num}`;
           if (!audioCache.current[key]) {

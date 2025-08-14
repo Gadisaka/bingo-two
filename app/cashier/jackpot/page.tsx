@@ -32,6 +32,19 @@ export default function JackpotPage() {
         setIsClaimed(data.isClaimed || false);
         setJackpotEnabled(data.jackpotEnabled || "Off");
         setJackpotPercent(data.jackpotPercent || 25);
+
+        // Also save to localStorage to ensure GameBoard.tsx has access to current settings
+        localStorage.setItem(
+          "jackpotSettings",
+          JSON.stringify({
+            jackpotStartingAmount: data.jackpotStartingAmount || 200,
+            dailyNumber: data.dailyNumber || 25,
+            matchGap: data.matchGap || 5,
+            isClaimed: data.isClaimed || false,
+            jackpotEnabled: data.jackpotEnabled || "Off",
+            jackpotPercent: data.jackpotPercent || 25,
+          })
+        );
       } else {
         console.error("Failed to fetch jackpot settings");
         toast.error("Failed to load jackpot settings");
@@ -70,6 +83,8 @@ export default function JackpotPage() {
       });
 
       if (response.ok) {
+        // Also save to localStorage so GameBoard.tsx can access updated settings
+        localStorage.setItem("jackpotSettings", JSON.stringify(data));
         toast.success("Jackpot settings saved!");
       } else {
         const errorData = await response.json();

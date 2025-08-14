@@ -357,8 +357,8 @@ export default function GameSetup({ onStart }: setUpProps) {
   };
 
   const handleStartGame = () => {
-    if (selectedCards.length < 3) {
-      toast.error("Select at least 3 cards to start");
+    if (selectedCards.length < 1) {
+      toast.error("Select at least 1 card to start");
       return;
     }
 
@@ -810,9 +810,11 @@ export default function GameSetup({ onStart }: setUpProps) {
               onChange={(e) => setAudioFolder(e.target.value)}
               className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1"
             >
-              <option value="Gold">Amh 1</option>
-              <option value="Gold2">Amh 2</option>
+              <option value="Gold">Amh Male 1</option>
+              <option value="Gold2">Amh Male 2</option>
               <option value="Gold3">Oro</option>
+              <option value="Gold4">Amh Female 1</option>
+              <option value="Gold5">Funny</option>
             </select>
           </div>
           <button

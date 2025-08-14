@@ -72,14 +72,14 @@ export default function NumberBoard({
   };
 
   return (
-    <div className="flex gap-2 bg-gray-200 items-center h-full">
+    <div className="flex gap-2 bg-white items-center h-full">
       <div className="flex flex-col p-2  justify-around items-center h-full  text-xl ">
         {["B", "I", "N", "G", "O"].map((letter) => (
           <div
             key={letter}
-            className="w-[50px] h-[50px]  bg-white ring-4 ring-orange-700 flex items-center justify-center font-bold "
+            className="w-[50px] h-[50px]  bg-white ring-4 ring-orange-500 flex items-center justify-center font-bold "
           >
-            <h1 className=" bg-white  text-gray-800 font-bold text-2xl font-potta-one flex items-center justify-center ">
+            <h1 className=" bg-white  text-black font-bold text-4xl flex items-center justify-center ">
               {letter}
             </h1>
           </div>
@@ -120,7 +120,7 @@ export default function NumberBoard({
             <div
               key={num}
               className={cn(
-                "w-[62px] h-[67px] flex items-center justify-center  text-3xl font-bold",
+                "w-[62px] h-[67px] flex items-center justify-center  text-5xl font-bold",
                 reset
                   ? "transition-colors duration-75"
                   : "transition-colors duration-300",
@@ -136,10 +136,10 @@ export default function NumberBoard({
             >
               <div
                 className={cn(
-                  "relative w-[50px] h-[50px] bg-gray-200 flex text-4xl items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
+                  "relative w-[50px] h-[50px] bg-white flex text-5xl items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
                   isCalled
-                    ? "ring-2 ring-orange-700 text-black shadow-lg"
-                    : " text-gray-500 ",
+                    ? "ring-2 ring-orange-500 text-black shadow-lg"
+                    : " text-white",
                   isCurrent && "animate-bounce"
                 )}
               >
@@ -149,7 +149,7 @@ export default function NumberBoard({
                     isCalled ? "bg-black/10" : "bg-white/20 blur-sm"
                   )}
                 />
-                <span className="relative stroke-white ">
+                <span className="relative font-bold drop-shadow-[1px_1px_2px_rgba(0,0,0,0.3)]">
                   {reset && isHighlighted ? shufflingNumber : num}
                 </span>
               </div>
