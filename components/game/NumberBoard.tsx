@@ -73,7 +73,7 @@ export default function NumberBoard({
 
   return (
     <div className="flex gap-2 bg-white items-center h-full">
-      <div className="flex flex-col p-2  justify-around items-center h-full  text-xl ">
+      <div className="flex flex-col p-2  justify-between items-center h-full  text-xl ">
         {["B", "I", "N", "G", "O"].map((letter) => (
           <div
             key={letter}
