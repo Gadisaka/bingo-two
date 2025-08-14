@@ -86,10 +86,16 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
   // Add at the top of your GameBoard component, after `useRef`:
   const audioCache = useRef<Record<string, HTMLAudioElement>>({});
+  const audioLoader = useRef<
+    ((folder: string, fileName: string) => HTMLAudioElement) | null
+  >(null);
+  const lastAudioFolder = useRef<string>("Gold");
 
-  // Preload audios (Gold and Gold2) once on mount
   useEffect(() => {
     const preloadAudios = () => {
+      // Get the selected audio folder from localStorage
+      const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
+
       const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
       const extraFiles = [
         "win",
@@ -105,77 +111,172 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "stop",
         "pass",
       ];
-      ["Gold", "Gold2", "Gold3", "Gold4", "Gold5"].forEach((folder) => {
-        numbers.forEach((num) => {
-          const key = `${folder}/${num}`;
-          if (!audioCache.current[key]) {
-            const audio = new Audio(`/${folder}/${num}.mp3`);
-            audio.preload = "auto";
-            audioCache.current[key] = audio;
-          }
-        });
-        extraFiles.forEach((file) => {
-          const key = `${folder}/${file}`;
-          if (!audioCache.current[key]) {
-            const audio = new Audio(`/${folder}/${file}.mp3`);
-            audio.preload = "auto";
-            audioCache.current[key] = audio;
-          }
-        });
+
+      // Only preload from the selected folder
+      numbers.forEach((num) => {
+        const key = `${selectedFolder}/${num}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/${selectedFolder}/${num}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
       });
+
+      extraFiles.forEach((file) => {
+        const key = `${selectedFolder}/${file}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/${selectedFolder}/${file}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
+      });
+
+      // Add a function to dynamically load audio from other folders when needed
+      audioLoader.current = (folder: string, fileName: string) => {
+        const key = `${folder}/${fileName}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/${folder}/${fileName}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
+        return audioCache.current[key];
+      };
+
+      // Initialize the last audio folder
+      lastAudioFolder.current = selectedFolder;
     };
     preloadAudios();
   }, []);
 
-  // Updated playAudioForNumber function using selected folder
-  const playAudioForNumber = useCallback(
-    (num: number) => {
-      // Check if audio is muted
-      const isMuted = localStorage.getItem("audioMuted") === "true";
-      if (isMuted) return;
+  // Function to handle audio folder changes
+  const handleAudioFolderChange = useCallback((newFolder: string) => {
+    // Clear existing audio cache for the old folder
+    const oldFolder = localStorage.getItem("audioFolder") || "Gold";
+    if (oldFolder !== newFolder) {
+      // Remove old folder audio files from cache
+      Object.keys(audioCache.current).forEach((key) => {
+        if (key.startsWith(`${oldFolder}/`)) {
+          delete audioCache.current[key];
+        }
+      });
 
-      const key = `${audioFolder}/${num}`;
-      let audio = audioCache.current[key];
-      if (!audio) {
-        const created = new Audio(`/${audioFolder}/${num}.mp3`);
-        created.preload = "auto";
-        audioCache.current[key] = created;
-        audio = created;
+      // Preload new folder audio files
+      const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
+      const extraFiles = [
+        "win",
+        "lose",
+        "cardnotfound",
+        "reset",
+        "startgame",
+        "stopgame",
+        "bingo_ball",
+        "bonus",
+        "shuffle",
+        "start",
+        "stop",
+        "pass",
+      ];
+
+      numbers.forEach((num) => {
+        const key = `${newFolder}/${num}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/${newFolder}/${num}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
+      });
+
+      extraFiles.forEach((file) => {
+        const key = `${newFolder}/${file}`;
+        if (!audioCache.current[key]) {
+          const audio = new Audio(`/${newFolder}/${file}.mp3`);
+          audio.preload = "auto";
+          audioCache.current[key] = audio;
+        }
+      });
+    }
+  }, []);
+
+  // Listen for audio folder changes in localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "audioFolder" && e.newValue) {
+        handleAudioFolderChange(e.newValue);
       }
+    };
+
+    // Listen for changes from other tabs/windows
+    window.addEventListener("storage", handleStorageChange);
+
+    // Also check for changes in the current tab
+    const checkAudioFolder = () => {
+      const currentFolder = localStorage.getItem("audioFolder") || "Gold";
+      if (lastAudioFolder.current !== currentFolder) {
+        handleAudioFolderChange(currentFolder);
+        lastAudioFolder.current = currentFolder;
+      }
+    };
+
+    // Check every second for changes
+    const interval = setInterval(checkAudioFolder, 1000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [handleAudioFolderChange]);
+
+  // Updated playAudioForNumber function using selected folder
+  const playAudioForNumber = useCallback((num: number) => {
+    // Check if audio is muted
+    const isMuted = localStorage.getItem("audioMuted") === "true";
+    if (isMuted) return;
+
+    const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
+    const key = `${selectedFolder}/${num}`;
+    let audio = audioCache.current[key];
+
+    // If audio is not cached, load it dynamically
+    if (!audio && audioLoader.current) {
+      audio = audioLoader.current(selectedFolder, num.toString());
+    }
+
+    if (audio) {
       try {
         audio.currentTime = 0;
         audio.play();
       } catch (err) {
         console.warn("Playback failed for", key, err);
       }
-    },
-    [audioFolder]
-  );
+    }
+  }, []);
 
-  const playAudio = useCallback(
-    (path: string) => {
-      // Check if audio is muted
-      const isMuted = localStorage.getItem("audioMuted") === "true";
-      if (isMuted) return;
+  const playAudio = useCallback((path: string) => {
+    // Check if audio is muted
+    const isMuted = localStorage.getItem("audioMuted") === "true";
+    if (isMuted) return;
 
-      // Use selected folder for all audio
-      let file = path.split("/").pop() || "";
-      if (!file.endsWith(".mp3")) file += ".mp3";
-      const key = `${audioFolder}/${file.replace(".mp3", "")}`;
-      let audio = audioCache.current[key];
-      if (!audio) {
-        audio = new Audio(`/${audioFolder}/${file}`);
-        audioCache.current[key] = audio;
-      }
+    // Use selected folder for all audio
+    const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
+    let file = path.split("/").pop() || "";
+    if (!file.endsWith(".mp3")) file += ".mp3";
+    const key = `${selectedFolder}/${file.replace(".mp3", "")}`;
+    let audio = audioCache.current[key];
+
+    // If audio is not cached, load it dynamically
+    if (!audio && audioLoader.current) {
+      audio = audioLoader.current(selectedFolder, file.replace(".mp3", ""));
+    }
+
+    if (audio) {
       try {
         audio.currentTime = 0;
         audio.play();
       } catch (err) {
         console.warn("Audio playback failed for", key, err);
       }
-    },
-    [audioFolder]
-  );
+    }
+  }, []);
 
   const callNextNumber = useCallback(() => {
     const remaining = allNumbers.filter((n) => !calledNumbers.includes(n));
