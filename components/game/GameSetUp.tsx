@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Fullscreen, Mic, MicOff, Play, X } from "lucide-react";
+import { Fullscreen, Mic, MicOff, Play, X, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { bingoCardsSet1 } from "@/lib/bingoData";
 import { BingoCard } from "@/types/types";
@@ -64,6 +64,7 @@ export default function GameSetup({ onStart }: setUpProps) {
   const [showCardInputModal, setShowCardInputModal] = useState<boolean>(false);
   const [cardInputValue, setCardInputValue] = useState<string>("");
   const [showNumbersBoard, setShowNumbersBoard] = useState<boolean>(false);
+  const [showPlayersCount, setShowPlayersCount] = useState<boolean>(false);
   const audioRef = useRef(null);
   const [audioFolder, setAudioFolder] = useState<string>("Gold");
   // New: cache cashier winCutTable and cashier data
@@ -1084,11 +1085,22 @@ export default function GameSetup({ onStart }: setUpProps) {
             </button>
           </div>
           <div className="w-full mx-auto mt-3 grid grid-cols-1 gap-3">
-            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
-              <div className="text-xs text-gray-400">Players</div>
-              <div className="text-xl font-semibold">
-                {selectedCards.length}
+            <div
+              className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white"
+              onMouseEnter={() => setShowPlayersCount(true)}
+              onMouseLeave={() => setShowPlayersCount(false)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-gray-400">Players</div>
+                <div className="text-gray-400 transition-colors">
+                  <Eye className="w-4 h-4" />
+                </div>
               </div>
+              {showPlayersCount && (
+                <div className="text-xl font-semibold">
+                  {selectedCards.length}
+                </div>
+              )}
             </div>
             <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
               <div className="text-xs text-gray-400">Bet (Birr)</div>

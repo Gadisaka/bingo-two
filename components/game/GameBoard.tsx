@@ -764,6 +764,25 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     setJackpotResult(null);
   };
 
+  const handleBlockCard = () => {
+    if (checkResult?.card && checkResult.status === "not_now") {
+      const cardId = checkResult.card.id;
+      setBlacklistedCards((prev) => {
+        const updated = [...prev, cardId];
+        localStorage.setItem("blacklist", JSON.stringify(updated));
+        return updated;
+      });
+
+      // Update the check result to show as already checked
+      setCheckResult({
+        status: "already_checked",
+        card: checkResult.card,
+      });
+
+      toast.success("Card has been blocked");
+    }
+  };
+
   const renderCardGrid = (cardId: number) => {
     const card = currentCardSet.find((c) => c.id === cardId);
     if (!card) return null;
@@ -960,6 +979,16 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                     </div>
                   )}
                 </div>
+
+                {/* Block button for not_now status */}
+                {checkResult.status === "not_now" && (
+                  <button
+                    onClick={handleBlockCard}
+                    className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-red-400 to-red-500 text-white font-bold text-lg px-6 py-2 rounded-md shadow-inner shadow-red-700 ring-2 ring-red-600 mb-2"
+                  >
+                    Lock Card
+                  </button>
+                )}
               </>
             )}
 
