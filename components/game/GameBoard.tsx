@@ -571,7 +571,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       already_checked: {
         bg: "bg-gray-100",
         text: "text-red-800",
-        message: "CARD LOCKED - NO BINGO",
+        message: "NO BINGO",
         toast: () => toast.error("Card already checked - No Bingo"),
       },
       already_won: {
@@ -583,8 +583,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       lose: {
         bg: "bg-red-100",
         text: "text-red-800",
-        message: "NO BINGO - CARD LOCKED",
-        toast: () => toast.error("No Bingo - Card locked"),
+        message: "NO BINGO",
+        toast: () => toast.error("No Bingo"),
       },
       not_now: {
         bg: "bg-orange-100",
@@ -745,12 +745,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       // Do not blacklist or mark as win, just show message
       playAudio(`pass.mp3`);
     } else {
+      // For lose status, don't automatically blacklist - let user manually lock
       playAudio(`lose.mp3`);
-      setBlacklistedCards((prev) => {
-        const updated = [...prev, cardId];
-        localStorage.setItem("blacklist", JSON.stringify(updated));
-        return updated;
-      });
     }
 
     setCheckResult({ status: status as (typeof checkResult)["status"], card });
@@ -765,7 +761,10 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   };
 
   const handleBlockCard = () => {
-    if (checkResult?.card && checkResult.status === "not_now") {
+    if (
+      checkResult?.card &&
+      (checkResult.status === "not_now" || checkResult.status === "lose")
+    ) {
       const cardId = checkResult.card.id;
       setBlacklistedCards((prev) => {
         const updated = [...prev, cardId];
@@ -982,6 +981,16 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
                 {/* Block button for not_now status */}
                 {checkResult.status === "not_now" && (
+                  <button
+                    onClick={handleBlockCard}
+                    className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-red-400 to-red-500 text-white font-bold text-lg px-6 py-2 rounded-md shadow-inner shadow-red-700 ring-2 ring-red-600 mb-2"
+                  >
+                    Lock Card
+                  </button>
+                )}
+
+                {/* Manual lock button for lose status */}
+                {checkResult.status === "lose" && (
                   <button
                     onClick={handleBlockCard}
                     className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-red-400 to-red-500 text-white font-bold text-lg px-6 py-2 rounded-md shadow-inner shadow-red-700 ring-2 ring-red-600 mb-2"
