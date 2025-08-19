@@ -65,6 +65,8 @@ export default function GameSetup({ onStart }: setUpProps) {
   const [cardInputValue, setCardInputValue] = useState<string>("");
   const [showNumbersBoard, setShowNumbersBoard] = useState<boolean>(false);
   const [showPlayersCount, setShowPlayersCount] = useState<boolean>(false);
+  const [showWinCut, setShowWinCut] = useState<boolean>(false);
+  const [showWinAmount, setShowWinAmount] = useState<boolean>(false);
   const audioRef = useRef(null);
   const [audioFolder, setAudioFolder] = useState<string>("Gold");
   // New: cache cashier winCutTable and cashier data
@@ -1087,8 +1089,12 @@ export default function GameSetup({ onStart }: setUpProps) {
           <div className="w-full mx-auto mt-3 grid grid-cols-1 gap-3">
             <div
               className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white"
-              onMouseEnter={() => setShowPlayersCount(true)}
-              onMouseLeave={() => setShowPlayersCount(false)}
+              onMouseEnter={() => {
+                setShowPlayersCount(true);
+              }}
+              onMouseLeave={() => {
+                setShowPlayersCount(false);
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="text-xs text-gray-400">Players</div>
@@ -1106,27 +1112,49 @@ export default function GameSetup({ onStart }: setUpProps) {
               <div className="text-xs text-gray-400">Bet (Birr)</div>
               <div className="text-xl font-semibold">{betAmount}</div>
             </div>
-            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
+            <div
+              className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white"
+              onMouseEnter={() => {
+                setShowWinCut(true);
+              }}
+              onMouseLeave={() => {
+                setShowWinCut(false);
+              }}
+            >
               <div className="text-xs text-gray-400">Applied Win-Cut %</div>
-              <div className="text-xl font-semibold">
-                {(() => {
-                  const rule = winCutTable.find(
-                    (r) =>
-                      selectedCards.length >= r.minCards &&
-                      selectedCards.length <= r.maxCards
-                  );
-                  const percent = rule
-                    ? betAmount <= 30
-                      ? rule.percent5to30
-                      : rule.percentAbove30
-                    : 0;
-                  return `${percent.toFixed(1)}%`;
-                })()}
-              </div>
+              {showWinCut && (
+                <div className="text-xl font-semibold">
+                  {(() => {
+                    const rule = winCutTable.find(
+                      (r) =>
+                        selectedCards.length >= r.minCards &&
+                        selectedCards.length <= r.maxCards
+                    );
+                    const percent = rule
+                      ? betAmount <= 30
+                        ? rule.percent5to30
+                        : rule.percentAbove30
+                      : 0;
+                    return `${percent.toFixed(1)}%`;
+                  })()}
+                </div>
+              )}
             </div>
-            <div className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white">
+            <div
+              className="bg-gray-900/70 border border-gray-700 rounded-lg px-4 py-3 text-white"
+              onMouseEnter={() => {
+                setShowWinAmount(true);
+              }}
+              onMouseLeave={() => {
+                setShowWinAmount(false);
+              }}
+            >
               <div className="text-xs text-gray-400">Winning (Birr)</div>
-              <div className="text-xl font-semibold">{winning.toFixed(2)}</div>
+              {showWinAmount && (
+                <div className="text-xl font-semibold">
+                  {winning.toFixed(2)}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -16,6 +16,7 @@ interface GameControlsProps {
   handleResetConfirm: () => void;
   handleCheckCard: () => void;
   callNextNumber: () => void;
+  debugJackpot: () => void;
 }
 
 export default function GameControls({
@@ -29,6 +30,7 @@ export default function GameControls({
   handleResetConfirm,
   handleCheckCard,
   callNextNumber,
+  debugJackpot,
 }: GameControlsProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGameFinished, setIsGameFinished] = useState(false);
@@ -139,6 +141,15 @@ export default function GameControls({
             />
             <span className="relative z-10"> SHUFFLE</span>
           </button>
+
+          {/* Debug button for jackpot troubleshooting */}
+          {/* <button
+            className="relative text-white cursor-pointer font-bold text-xl h-16 w-32 px-4 py-3 bg-red-600 hover:bg-red-700"
+            onClick={debugJackpot}
+            title="Debug Jackpot Settings"
+          >
+            <span className="relative z-10">DEBUG</span>
+          </button> */}
         </div>
         {/* <div className="flex flex-col gap-2">
             <Button

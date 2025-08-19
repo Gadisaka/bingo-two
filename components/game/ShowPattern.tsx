@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { BingoPattern } from "@/types/types";
 
 interface BingoPatternVisualizerProps {
-  pattern:BingoPattern
+  pattern: BingoPattern;
 }
 
 const cols = ["B", "I", "N", "G", "O"];
@@ -150,7 +150,6 @@ const generatePatterns = (
 
   return results;
 };
-
 
 export const BingoPatternVisualizer = ({
   pattern,

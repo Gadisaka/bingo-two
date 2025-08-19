@@ -31,6 +31,7 @@ import { NumberDisplay } from "./NumberDisplay";
 import { GameStats } from "./GameStats";
 import NumberBoard from "./NumberBoard";
 import { checkWinningPattern } from "@/lib/bingoUtils";
+import { useGameSession } from "@/lib/hooks/useGameSession";
 
 interface BoardProps {
   onBackToSetup: () => void;
@@ -71,10 +72,91 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     isJackpot: boolean;
     jackpotAmount: number;
   }>(null);
-  const [jackpotEnabled, setJackpotEnabled] = useState(true);
   const [audioFolder, setAudioFolder] = useState<string>("Gold");
-  const [gameSequenceNumber, setGameSequenceNumber] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [currentReportId, setCurrentReportId] = useState<number | null>(null);
+
+  // NEW CLEAN SYSTEM: Use the simplified jackpot hook
+  const {
+    jackpotInfo,
+    loading: jackpotLoading,
+    error: jackpotError,
+    isNextGameJackpotEligible,
+    calculateJackpotAmount,
+    getNextGameNumber,
+    getTodayGamesCount,
+    isJackpotEnabled,
+    getRemainingJackpots,
+    refresh: refreshJackpotInfo,
+  } = useGameSession();
+
+  // NEW: Manage jackpot count in localStorage
+  const getTodayJackpotCount = useCallback(() => {
+    const today = new Date().toDateString();
+    const key = `jackpotCount_${today}`;
+    const count = localStorage.getItem(key);
+    return count ? parseInt(count) : 0;
+  }, []);
+
+  const incrementTodayJackpotCount = useCallback(() => {
+    const today = new Date().toDateString();
+    const key = `jackpotCount_${today}`;
+    const currentCount = getTodayJackpotCount();
+    const newCount = currentCount + 1;
+    localStorage.setItem(key, newCount.toString());
+    console.log("🎉 JACKPOT COUNT INCREMENTED:", newCount);
+    return newCount;
+  }, [getTodayJackpotCount]);
+
+  const getRemainingJackpotsLocal = useCallback(() => {
+    if (!jackpotInfo) return 0;
+    const todayCount = getTodayJackpotCount();
+    return Math.max(0, jackpotInfo.jackpotSettings.dailyNumber - todayCount);
+  }, [jackpotInfo, getTodayJackpotCount]);
+
+  // Show jackpot error if any
+  useEffect(() => {
+    if (jackpotError) {
+      console.error("🎰 JACKPOT ERROR:", jackpotError);
+      toast.error(`Jackpot system error: ${jackpotError}`);
+    }
+  }, [jackpotError]);
+
+  // NEW CLEAN SYSTEM: Debug jackpot settings
+  const debugJackpotSettings = useCallback(() => {
+    // console.log("🔍 CURRENT JACKPOT INFO:", jackpotInfo);
+    // console.log("🔍 TOTAL BET:", selectedCards.length * (betAmount || 0));
+    // console.log("🔍 JACKPOT ENABLED:", isJackpotEnabled());
+    // console.log("🔍 REMAINING JACKPOTS (API):", getRemainingJackpots());
+    // console.log("🔍 REMAINING JACKPOTS (LOCAL):", getRemainingJackpotsLocal());
+    // console.log("🔍 TODAY'S JACKPOT COUNT (LOCAL):", getTodayJackpotCount());
+    // console.log(
+    //   "🔍 NEXT GAME ELIGIBLE:",
+    //   jackpotInfo?.todayStats.nextGameEligible
+    // );
+    // console.log("🔍 NEXT GAME NUMBER:", getNextGameNumber());
+    // console.log("🔍 TODAY'S GAMES:", getTodayGamesCount());
+    // console.log("🔍 CURRENT REPORT ID:", currentReportId);
+    // console.log("🔍 JACKPOT SETTINGS:", jackpotInfo?.jackpotSettings);
+  }, [
+    jackpotInfo,
+    selectedCards.length,
+    betAmount,
+    isJackpotEnabled,
+    getRemainingJackpots,
+    getRemainingJackpotsLocal,
+    getTodayJackpotCount,
+    getNextGameNumber,
+    getTodayGamesCount,
+    currentReportId,
+  ]);
+
+  // NEW CLEAN SYSTEM: Reset game session for testing
+  const resetGameSession = useCallback(async () => {
+    console.log("🔄 RESETTING GAME SESSION FOR TESTING...");
+    await refreshJackpotInfo();
+    console.log("✅ GAME SESSION REFRESHED");
+  }, [refreshJackpotInfo]);
 
   const currentCardSet = CARD_SETS[selectedCardSetId];
 
@@ -328,7 +410,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       }
       setisReseting(true);
 
-      const { error } = await createReport({
+      const reportResult = await createReport({
         totalCall: calledNumbers.length,
         registeredNumbers: selectedCards.length,
         revenue: selectedCards.length * (betAmount || 0) - (winningAmount || 0),
@@ -341,13 +423,51 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             : selectedCards.length * (betAmount || 0) - (winningAmount || 0),
       });
 
-      if (error) {
-        toast.error(error);
+      if (reportResult.error) {
+        toast.error(reportResult.error);
         return;
       }
 
-      // Increment game sequence number for jackpot tracking
-      setGameSequenceNumber((prev) => prev + 1);
+      // Store the report ID for jackpot tracking
+      if (reportResult.data?.id) {
+        setCurrentReportId(reportResult.data.id);
+        console.log("📊 REPORT CREATED WITH ID:", reportResult.data.id);
+      }
+
+      // NEW CLEAN SYSTEM: Check if this game won jackpot and update report
+      const totalBetAmount = selectedCards.length * (betAmount || 0);
+      const currentGameNumber = getTodayGamesCount(); // This game just completed
+
+      // Check if this game was jackpot eligible
+      let jackpotWon = false;
+      let jackpotAmount = 0;
+
+      if (
+        jackpotInfo &&
+        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0
+      ) {
+        jackpotWon = true;
+        jackpotAmount = Math.round(
+          (totalBetAmount * jackpotInfo.jackpotSettings.percent) / 100
+        );
+
+        console.log("🎉 JACKPOT WIN RECORDED:", {
+          gameNumber: currentGameNumber,
+          jackpotAmount: jackpotAmount,
+          totalBet: totalBetAmount,
+        });
+      }
+
+      // Update the report with jackpot information
+      if (jackpotWon) {
+        // We need to update the report that was just created
+        // For now, we'll refresh jackpot info to show the updated count
+        await refreshJackpotInfo();
+        console.log("🎮 GAME COMPLETED WITH JACKPOT, INFO REFRESHED");
+      } else {
+        await refreshJackpotInfo();
+        console.log("🎮 GAME COMPLETED, JACKPOT INFO REFRESHED");
+      }
 
       // Reset all game state
       setCalledNumbers([]);
@@ -356,6 +476,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       setWinners([]);
       setBlacklistedCards([]);
       setGameOver(false);
+      setCurrentReportId(null); // Clear current report ID
       clearSelectedCards();
       // Clear localStorage
       localStorage.removeItem("calledNumbers");
@@ -368,7 +489,13 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       console.error("Failed to start new game", err);
       toast.error("Failed to start new game");
     }
-  }, [calledNumbers.length, selectedCards.length, betAmount, winningAmount]);
+  }, [
+    calledNumbers.length,
+    selectedCards.length,
+    betAmount,
+    winningAmount,
+    refreshJackpotInfo,
+  ]);
 
   const resetGame = useCallback(async () => {
     setShowResetConfirm(false);
@@ -446,20 +573,6 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         if (winnersData) setWinners(JSON.parse(winnersData));
         if (auto) setAutoCall(auto === "true");
 
-        // Load game sequence number for jackpot tracking
-        const savedGameSequence = localStorage.getItem("gameSequenceNumber");
-        const savedGameSequenceDate = localStorage.getItem("gameSequenceDate");
-        const today = new Date().toDateString();
-
-        if (savedGameSequence && savedGameSequenceDate === today) {
-          setGameSequenceNumber(Number(savedGameSequence));
-        } else {
-          // Reset game sequence for new day
-          setGameSequenceNumber(0);
-          localStorage.setItem("gameSequenceNumber", "0");
-          localStorage.setItem("gameSequenceDate", today);
-        }
-
         // Load bonus settings
         const bonusTypeIndex = localStorage.getItem("bonusTypeIndex");
         const bonusAmountIndex = localStorage.getItem("bonusAmountIndex");
@@ -497,49 +610,17 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     return () => clearInterval(interval);
   }, [currentNumber]);
 
-  // Save game sequence number to localStorage when it changes
+  // NEW CLEAN SYSTEM: Log jackpot info changes for debugging
   useEffect(() => {
-    localStorage.setItem("gameSequenceNumber", gameSequenceNumber.toString());
-  }, [gameSequenceNumber]);
-
-  // Clean up old daily jackpot data
-  const cleanupOldJackpotData = () => {
-    const today = new Date().toDateString();
-    const keys = Object.keys(localStorage);
-
-    keys.forEach((key) => {
-      if (key.startsWith("dailyJackpot_") && key !== `dailyJackpot_${today}`) {
-        localStorage.removeItem(key);
-      }
-    });
-  };
-
-  useEffect(() => {
-    // Clean up old jackpot data on component mount
-    cleanupOldJackpotData();
-
-    // Read jackpotEnabled from localStorage on mount and check if it should be active
-    const jackpotSettingsRaw = localStorage.getItem("jackpotSettings");
-    if (jackpotSettingsRaw) {
-      try {
-        const jackpotSettings = JSON.parse(jackpotSettingsRaw);
-        const jackpotStartingAmount = Number(
-          jackpotSettings.jackpotStartingAmount || jackpotSettings.jackpotAmount
-        );
-        const totalBetAmount = selectedCards.length * (betAmount || 0);
-
-        // Jackpot is enabled if setting is "On" AND total bet meets minimum requirement
-        const shouldBeEnabled =
-          jackpotSettings.jackpotEnabled === "On" &&
-          totalBetAmount >= jackpotStartingAmount;
-        setJackpotEnabled(shouldBeEnabled);
-      } catch (e) {
-        setJackpotEnabled(true); // fallback to enabled
-      }
-    } else {
-      setJackpotEnabled(true); // fallback to enabled
+    if (jackpotInfo) {
+      console.log("🎰 JACKPOT INFO UPDATED:", {
+        nextGame: jackpotInfo.todayStats.nextGameNumber,
+        jackpotsAwarded: jackpotInfo.todayStats.jackpotsAwarded,
+        remainingJackpots: jackpotInfo.todayStats.remainingJackpots,
+        nextGameEligible: jackpotInfo.todayStats.nextGameEligible,
+      });
     }
-  }, [selectedCards.length, betAmount]);
+  }, [jackpotInfo]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [inputCardId, setInputCardId] = useState("");
@@ -597,7 +678,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     return configs[status as keyof typeof configs] || configs.lose;
   };
 
-  const handleCardCheck = () => {
+  const handleCardCheck = async () => {
     const cardId = Number.parseInt(inputCardId);
     if (isNaN(cardId)) {
       toast.error("Please enter a valid card number");
@@ -642,94 +723,90 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     let isWinner = result.isWinner;
     let status = isWinner ? "win" : "lose";
 
-    // Only allow win if currentNumber is in the winning pattern
+    // Check if the current number is part of ANY winning pattern
     if (isWinner) {
-      const columns = ["B", "I", "N", "G", "O"];
-      const winningNumbers = result.winningCells
-        .map(({ row, col }) => card[columns[col]][row])
-        .filter((num) => num !== 0); // Exclude free space
-      if (!winningNumbers.includes(currentNumber!)) {
+      // Check if current number is part of any winning pattern
+      const hasCurrentNumberInAnyPattern = result.winningCells.some(
+        ({ row, col }) => {
+          const columns = ["B", "I", "N", "G", "O"];
+          const num = card[columns[col]][row];
+          return num === currentNumber;
+        }
+      );
+
+      if (!hasCurrentNumberInAnyPattern) {
         isWinner = false;
         status = "not_now";
       }
     }
 
-    // Jackpot logic - NEW GAME-BASED SYSTEM
-    let jackpotInfo = { isJackpot: false, jackpotAmount: 0 };
+    // NEW CLEAN SYSTEM: Jackpot logic using reports table
+    let jackpotResult = { isJackpot: false, jackpotAmount: 0 };
     if (isWinner) {
-      // Read jackpot settings
-      const jackpotSettingsRaw = localStorage.getItem("jackpotSettings");
-      if (jackpotSettingsRaw) {
-        try {
-          const jackpotSettings = JSON.parse(jackpotSettingsRaw);
-          const dailyNumber = Number(jackpotSettings.dailyNumber); // Number of jackpots to give per day
-          const matchGap = Number(jackpotSettings.matchGap); // Gap between jackpot games
-          const jackpotStartingAmount = Number(
-            jackpotSettings.jackpotStartingAmount ||
-              jackpotSettings.jackpotAmount
-          );
-          const jackpotPercent = Number(jackpotSettings.jackpotPercent);
-          const jackpotEnabled = jackpotSettings.jackpotEnabled;
+      // Check if this game was jackpot eligible
+      const totalBetAmount = selectedCards.length * (betAmount || 0);
+      const currentGameNumber = getTodayGamesCount(); // This game just completed
 
-          // Calculate total bet amount for this game
-          const totalBetAmount = selectedCards.length * (betAmount || 0);
+      // Check if this game number matches jackpot pattern
+      if (
+        jackpotInfo &&
+        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0
+      ) {
+        const jackpotAmount = Math.round(
+          (totalBetAmount * jackpotInfo.jackpotSettings.percent) / 100
+        );
 
-          // Check if jackpot should be active (total bet >= minimum required)
-          const isJackpotActive =
-            jackpotEnabled === "On" && totalBetAmount >= jackpotStartingAmount;
+        jackpotResult = {
+          isJackpot: true,
+          jackpotAmount: jackpotAmount,
+        };
 
-          if (isJackpotActive) {
-            // Get today's date as a string for tracking daily jackpots
-            const today = new Date().toDateString();
+        console.log("🎉 JACKPOT AWARDED:", {
+          gameNumber: currentGameNumber,
+          jackpotAmount: jackpotAmount,
+          totalBet: totalBetAmount,
+          matchGap: jackpotInfo.jackpotSettings.matchGap,
+          calculation: `${totalBetAmount} * ${jackpotInfo.jackpotSettings.percent}% = ${jackpotAmount}`,
+        });
 
-            // Get or initialize daily jackpot tracking
-            const dailyJackpotKey = `dailyJackpot_${today}`;
-            const dailyJackpotData = localStorage.getItem(dailyJackpotKey);
-            let dailyJackpotCount = 0;
-
-            if (dailyJackpotData) {
-              try {
-                const parsed = JSON.parse(dailyJackpotData);
-                dailyJackpotCount = parsed.count || 0;
-              } catch (e) {
-                // ignore parse error, start fresh
+        // Update the report with jackpot information
+        if (currentReportId) {
+          try {
+            const response = await fetch(
+              `/api/reports/${currentReportId}/jackpot`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  jackpotAwarded: true,
+                  jackpotAmount: jackpotAmount,
+                }),
               }
+            );
+
+            if (response.ok) {
+              console.log("✅ REPORT UPDATED WITH JACKPOT:", currentReportId);
+            } else {
+              console.error("❌ FAILED TO UPDATE REPORT WITH JACKPOT");
             }
-
-            // Check if we haven't reached the daily jackpot limit
-            if (dailyJackpotCount < dailyNumber) {
-              // Check if current game number should get jackpot based on matchGap
-              // Game numbers that get jackpot: 1, 1+matchGap, 1+2*matchGap, 1+3*matchGap, etc.
-              const shouldGetJackpot =
-                (gameSequenceNumber - 1) % matchGap === 0;
-
-              if (shouldGetJackpot) {
-                // Calculate jackpot amount as percentage of total bet
-                const calculatedJackpotAmount = Math.round(
-                  (totalBetAmount * jackpotPercent) / 100
-                );
-
-                jackpotInfo = {
-                  isJackpot: true,
-                  jackpotAmount: calculatedJackpotAmount,
-                };
-
-                // Update daily jackpot tracking
-                const updatedCount = dailyJackpotCount + 1;
-
-                localStorage.setItem(
-                  dailyJackpotKey,
-                  JSON.stringify({
-                    count: updatedCount,
-                    date: today,
-                  })
-                );
-              }
-            }
+          } catch (err) {
+            console.error("❌ ERROR UPDATING REPORT WITH JACKPOT:", err);
           }
-        } catch (e) {
-          // ignore parse error
         }
+
+        // NEW: Increment localStorage jackpot count immediately
+        const newCount = incrementTodayJackpotCount();
+        console.log("🎉 JACKPOT COUNT UPDATED IN LOCALSTORAGE:", newCount);
+      } else {
+        console.log("🎰 GAME NOT JACKPOT ELIGIBLE:", {
+          gameNumber: currentGameNumber,
+          matchGap: jackpotInfo?.jackpotSettings.matchGap || 1,
+          remainder: jackpotInfo
+            ? currentGameNumber % jackpotInfo.jackpotSettings.matchGap
+            : "N/A",
+        });
       }
     }
 
@@ -750,7 +827,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     }
 
     setCheckResult({ status: status as (typeof checkResult)["status"], card });
-    setJackpotResult(jackpotInfo);
+    setJackpotResult(jackpotResult);
     getStatusConfig(status).toast();
   };
 
@@ -808,17 +885,16 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               (cell) => cell.row === rowIndex && cell.col === colIndex
             );
             const isCalled = num !== undefined && calledNumbers.includes(num);
-            const isCurrentOrPrevious =
-              num === currentNumber || num === previousNumber;
+            const isCurrent = num === currentNumber;
 
             return (
               <div
                 key={`${letter}-${rowIndex}`}
                 className={cn(
-                  "border p-1 text-center font-normal w-10 h-10 flex items-center justify-center",
+                  "border p-1 text-center font-bold w-10 h-10 flex  items-center justify-center bg-white text-black",
                   num === 0 ? "bg-yellow-600 text-black border-gray-700" : "",
-                  isCalled ? "bg-gray-600 text-white" : "border-gray-700",
-                  isCurrentOrPrevious ? "border-4 border-red-500" : "",
+                  isCalled ? "bg-orange-500 text-white" : "border-gray-700",
+                  isCurrent ? "border-4 border-red-500" : "",
                   isWinningCell ? "!bg-green-500 !text-white" : ""
                 )}
               >
@@ -1057,55 +1133,32 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             <Image
               src="/jackpot.png"
               className={`object-cover ${
-                jackpotEnabled ? "opacity-100" : "opacity-30"
+                isJackpotEnabled() ? "opacity-100" : "opacity-30"
               }`}
               alt="jackpot"
               width={200}
               height={200}
             />
 
-            {/* Jackpot Status Display */}
-            {jackpotEnabled &&
-              (() => {
-                const jackpotSettingsRaw =
-                  localStorage.getItem("jackpotSettings");
-                if (jackpotSettingsRaw) {
-                  try {
-                    const jackpotSettings = JSON.parse(jackpotSettingsRaw);
-                    const dailyNumber = Number(jackpotSettings.dailyNumber);
-                    const matchGap = Number(jackpotSettings.matchGap);
-                    const today = new Date().toDateString();
-                    const dailyJackpotKey = `dailyJackpot_${today}`;
-                    const dailyJackpotData =
-                      localStorage.getItem(dailyJackpotKey);
-
-                    let dailyJackpotCount = 0;
-                    if (dailyJackpotData) {
-                      try {
-                        const parsed = JSON.parse(dailyJackpotData);
-                        dailyJackpotCount = parsed.count || 0;
-                      } catch (e) {
-                        // ignore parse error
-                      }
-                    }
-
-                    const remainingJackpots = dailyNumber - dailyJackpotCount;
-                    const nextJackpotGame = dailyJackpotCount * matchGap + 1;
-                    const currentGameInfo = `Game ${gameSequenceNumber}`;
-
-                    return (
-                      <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
-                        <div>
-                          {remainingJackpots}/{dailyNumber}
-                        </div>
-                      </div>
-                    );
-                  } catch (e) {
-                    return null;
-                  }
-                }
-                return null;
-              })()}
+            {/* NEW CLEAN SYSTEM: Jackpot Status Display */}
+            {jackpotLoading ? (
+              <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                  Loading...
+                </div>
+              </div>
+            ) : isJackpotEnabled() && jackpotInfo ? (
+              <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
+                <div>
+                  {getRemainingJackpotsLocal()}/
+                  {jackpotInfo.jackpotSettings.dailyNumber}
+                </div>
+                {/* <div className="text-xs opacity-75">
+                  Game {getNextGameNumber()}
+                </div> */}
+              </div>
+            ) : null}
 
             {/* {!jackpotEnabled && (
               <>
@@ -1196,6 +1249,10 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               setIsModalOpen(true);
             }}
             callNextNumber={callNextNumber}
+            debugJackpot={() => {
+              debugJackpotSettings();
+              resetGameSession();
+            }}
           />
 
           {/* <WinningAmountDisplay amount={winningAmount} /> */}

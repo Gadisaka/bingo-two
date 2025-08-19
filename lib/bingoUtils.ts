@@ -109,66 +109,44 @@ export function checkWinningPattern(
     xPatternCells.push(...diag1Cells, ...diag2Cells);
   }
 
-  // Check outer square pattern
+  // Check outer square pattern (4 corners only)
   const outerSquareCells: Array<{ row: number; col: number }> = [];
   let outerSquareWin = true;
 
-  // Check all cells around the perimeter
-  // Top row (row 0)
-  for (let col = 0; col < size; col++) {
-    if (!isMarked(0, col)) {
+  // Check only the 4 corner cells
+  const corners = [
+    { row: 0, col: 0 }, // Top-left
+    { row: 0, col: 4 }, // Top-right
+    { row: 4, col: 0 }, // Bottom-left
+    { row: 4, col: 4 }, // Bottom-right
+  ];
+
+  for (const corner of corners) {
+    if (!isMarked(corner.row, corner.col)) {
       outerSquareWin = false;
       break;
     }
-    outerSquareCells.push({ row: 0, col });
+    outerSquareCells.push(corner);
   }
 
-  // Right column (col 4) - excluding top and bottom corners already counted
-  if (outerSquareWin) {
-    for (let row = 1; row < size - 1; row++) {
-      if (!isMarked(row, size - 1)) {
-        outerSquareWin = false;
-        break;
-      }
-      outerSquareCells.push({ row, col: size - 1 });
-    }
-  }
-
-  // Bottom row (row 4) - excluding left and right corners already counted
-  if (outerSquareWin) {
-    for (let col = size - 2; col >= 0; col--) {
-      if (!isMarked(size - 1, col)) {
-        outerSquareWin = false;
-        break;
-      }
-      outerSquareCells.push({ row: size - 1, col });
-    }
-  }
-
-  // Left column (col 0) - excluding top and bottom corners already counted
-  if (outerSquareWin) {
-    for (let row = size - 2; row >= 1; row--) {
-      if (!isMarked(row, 0)) {
-        outerSquareWin = false;
-        break;
-      }
-      outerSquareCells.push({ row, col: 0 });
-    }
-  }
-
-  // Check inner square pattern (3x3 in the center)
+  // Check inner square pattern (4 corners of 3x3 center area only)
   const innerSquareCells: Array<{ row: number; col: number }> = [];
   let innerSquareWin = true;
 
-  for (let row = 1; row < 4; row++) {
-    for (let col = 1; col < 4; col++) {
-      if (!isMarked(row, col)) {
-        innerSquareWin = false;
-        break;
-      }
-      innerSquareCells.push({ row, col });
+  // Check only the 4 corner cells of the 3x3 center area
+  const innerCorners = [
+    { row: 1, col: 1 }, // Top-left of inner area
+    { row: 1, col: 3 }, // Top-right of inner area
+    { row: 3, col: 1 }, // Bottom-left of inner area
+    { row: 3, col: 3 }, // Bottom-right of inner area
+  ];
+
+  for (const corner of innerCorners) {
+    if (!isMarked(corner.row, corner.col)) {
+      innerSquareWin = false;
+      break;
     }
-    if (!innerSquareWin) break;
+    innerSquareCells.push(corner);
   }
 
   // Count total winning lines for multiple line patterns
@@ -243,41 +221,28 @@ export function testAllPatterns() {
   console.log(`   X pattern: ${result4.isWinner ? "✅ PASS" : "❌ FAIL"}`);
   console.log(`   Winning cells: ${result4.winningCells.length}`);
 
-  // Test 5: Outer square pattern
-  console.log("\n5️⃣ Testing outer square pattern:");
-  const calledNumbers5 = [
-    1,
-    2,
-    3,
-    4,
-    5, // Top row
-    16,
-    20, // Left and right of I column
-    31,
-    35, // Left and right of N column
-    46,
-    50, // Left and right of G column
-    61,
-    62,
-    63,
-    64,
-    65, // Bottom row
-  ];
+  // Test 5: Outer square pattern (4 corners only)
+  console.log("\n5️⃣ Testing outer square pattern (4 corners only):");
+  const calledNumbers5 = [1, 5, 61, 65]; // Only the 4 corner cells
   const result5 = checkWinningPattern(testCard, calledNumbers5, "outerSquare");
-  console.log(`   Outer square: ${result5.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(
+    `   Outer square corners: ${result5.isWinner ? "✅ PASS" : "❌ FAIL"}`
+  );
   console.log(`   Winning cells: ${result5.winningCells.length}`);
   if (result5.isWinner) {
     console.log(
-      `   Expected: 16 cells (perimeter), Got: ${result5.winningCells.length}`
+      `   Expected: 4 cells (corners only), Got: ${result5.winningCells.length}`
     );
     console.log("   Winning cells:", result5.winningCells);
   }
 
-  // Test 6: Inner square pattern
-  console.log("\n6️⃣ Testing inner square pattern:");
-  const calledNumbers6 = [17, 18, 19, 32, 34, 47, 48, 49]; // 3x3 center (excluding free space)
+  // Test 6: Inner square pattern (4 corners only)
+  console.log("\n6️⃣ Testing inner square pattern (4 corners only):");
+  const calledNumbers6 = [17, 19, 47, 49]; // Only the 4 corner cells of inner area
   const result6 = checkWinningPattern(testCard, calledNumbers6, "innerSquare");
-  console.log(`   Inner square: ${result6.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(
+    `   Inner square corners: ${result6.isWinner ? "✅ PASS" : "❌ FAIL"}`
+  );
   console.log(`   Winning cells: ${result6.winningCells.length}`);
 
   // Test 7: Three line pattern

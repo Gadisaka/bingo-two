@@ -53,6 +53,7 @@ model Cashier {
   agent           Agent         @relation(fields: [agentId], references: [id])
   reports         Report[]
   winCutTables    WinCutTable[]
+  gameSessions    GameSession[] // Added relation to GameSession
   
   // Jackpot settings
   jackpotEnabled        String  @default("Off") // "On" or "Off"
@@ -96,11 +97,36 @@ model Report {
   cashierCommission    Float    @default(0)
   appliedWinCutPercent Float    @default(0)
   totalBet             Float    @default(0)
+  
+  // NEW: Track jackpot wins
+  jackpotAwarded       Boolean  @default(false)
+  jackpotAmount        Float?   // Amount of jackpot won (if any)
+  
   cashier              Cashier  @relation(fields: [cashierId], references: [id])
 
   @@index([cashierId])
   @@index([date])
   @@index([status])
+}
+
+// New table for tracking game sessions and jackpot distributions
+model GameSession {
+  id                Int      @id @default(autoincrement())
+  cashierId         Int
+  sessionNumber     Int      // Sequential game number for this cashier
+  date              DateTime @default(now())
+  totalBet          Float    // Total bet amount for this game
+  jackpotEligible  Boolean  @default(false) // Whether this game should get jackpot
+  jackpotAwarded   Boolean  @default(false) // Whether jackpot was actually given
+  jackpotAmount     Float?  // Amount of jackpot given (if any)
+  status            String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  
+  cashier           Cashier  @relation(fields: [cashierId], references: [id], onDelete: Cascade)
+  
+  @@unique([cashierId, sessionNumber, date])
+  @@index([cashierId])
+  @@index([date])
+  @@index([sessionNumber])
 }
 
 enum Status {
