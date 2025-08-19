@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cashierId = parseInt(params.id);
+    const { id } = await params;
+    const cashierId = parseInt(id);
 
     // Get today's date
     const today = new Date();

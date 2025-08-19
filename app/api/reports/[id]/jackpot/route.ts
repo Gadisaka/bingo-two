@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const reportId = parseInt(params.id);
+    const { id } = await params;
+    const reportId = parseInt(id);
     const { jackpotAwarded, jackpotAmount } = await request.json();
 
     const updatedReport = await prisma.report.update({
