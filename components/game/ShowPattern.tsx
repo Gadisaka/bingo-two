@@ -36,66 +36,172 @@ const generatePatterns = (
     grid[3][3] = true;
   };
 
+  const applyPattern = (grid: HighlightGrid, patternName: string) => {
+    switch (patternName) {
+      case "horizontal":
+        // Apply first horizontal line (row 0)
+        for (let c = 0; c < 5; c++) grid[0][c] = true;
+        break;
+      case "vertical":
+        // Apply first vertical line (column 0)
+        for (let r = 0; r < 5; r++) grid[r][0] = true;
+        break;
+      case "diagonal":
+        // Apply one diagonal (top-left to bottom-right)
+        for (let i = 0; i < 5; i++) grid[i][i] = true;
+        break;
+      case "innerSquare":
+        addInnerCorners(grid);
+        break;
+      case "outerSquare":
+        addOuterCorners(grid);
+        break;
+      case "x":
+        // Apply X pattern (both diagonals)
+        for (let i = 0; i < 5; i++) {
+          grid[i][i] = true;
+          grid[i][4 - i] = true;
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
   switch (pattern) {
     case "1line":
     case "AnyLineOrLarge4Corner":
     case "AnyLineOrSmall4Corner":
-      // Rows
-      for (let r = 0; r < 5; r++) {
-        const grid = emptyGrid();
-        for (let c = 0; c < 5; c++) grid[r][c] = true;
-        if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(grid);
-        if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(grid);
-        results.push(grid);
-      }
-      // Columns
-      for (let c = 0; c < 5; c++) {
-        const grid = emptyGrid();
-        for (let r = 0; r < 5; r++) grid[r][c] = true;
-        if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(grid);
-        if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(grid);
-        results.push(grid);
-      }
-      // Diagonals
-      const diag1 = emptyGrid();
-      for (let i = 0; i < 5; i++) diag1[i][i] = true;
-      if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(diag1);
-      if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(diag1);
-      results.push(diag1);
+      // Show all 6 specific pattern types for 1line
+      if (pattern === "1line") {
+        // Horizontal lines
+        for (let r = 0; r < 5; r++) {
+          const grid = emptyGrid();
+          for (let c = 0; c < 5; c++) grid[r][c] = true;
+          results.push(grid);
+        }
 
-      const diag2 = emptyGrid();
-      for (let i = 0; i < 5; i++) diag2[i][4 - i] = true;
-      if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(diag2);
-      if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(diag2);
-      results.push(diag2);
+        // Vertical lines
+        for (let c = 0; c < 5; c++) {
+          const grid = emptyGrid();
+          for (let r = 0; r < 5; r++) grid[r][c] = true;
+          results.push(grid);
+        }
+
+        // Diagonals
+        const diag1 = emptyGrid();
+        for (let i = 0; i < 5; i++) diag1[i][i] = true;
+        results.push(diag1);
+
+        const diag2 = emptyGrid();
+        for (let i = 0; i < 5; i++) diag2[i][4 - i] = true;
+        results.push(diag2);
+
+        // Inner square
+        const innerSquare = emptyGrid();
+        addInnerCorners(innerSquare);
+        results.push(innerSquare);
+
+        // Outer square
+        const outerSquare = emptyGrid();
+        addOuterCorners(outerSquare);
+        results.push(outerSquare);
+
+        // X pattern
+        const xPattern = emptyGrid();
+        for (let i = 0; i < 5; i++) {
+          xPattern[i][i] = true;
+          xPattern[i][4 - i] = true;
+        }
+        results.push(xPattern);
+      } else {
+        // Original logic for other patterns
+        // Rows
+        for (let r = 0; r < 5; r++) {
+          const grid = emptyGrid();
+          for (let c = 0; c < 5; c++) grid[r][c] = true;
+          if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(grid);
+          if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(grid);
+          results.push(grid);
+        }
+        // Columns
+        for (let c = 0; c < 5; c++) {
+          const grid = emptyGrid();
+          for (let r = 0; r < 5; r++) grid[r][c] = true;
+          if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(grid);
+          if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(grid);
+          results.push(grid);
+        }
+        // Diagonals
+        const diag1 = emptyGrid();
+        for (let i = 0; i < 5; i++) diag1[i][i] = true;
+        if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(diag1);
+        if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(diag1);
+        results.push(diag1);
+
+        const diag2 = emptyGrid();
+        for (let i = 0; i < 5; i++) diag2[i][4 - i] = true;
+        if (pattern === "AnyLineOrLarge4Corner") addOuterCorners(diag2);
+        if (pattern === "AnyLineOrSmall4Corner") addInnerCorners(diag2);
+        results.push(diag2);
+      }
       break;
 
     case "2line":
-      for (let r1 = 0; r1 < 5; r1++) {
-        for (let r2 = r1 + 1; r2 < 5; r2++) {
-          const grid = emptyGrid();
-          for (let c = 0; c < 5; c++) {
-            grid[r1][c] = true;
-            grid[r2][c] = true;
-          }
-          results.push(grid);
-        }
+      // Generate multiple combinations of 2 patterns from the 6 specific patterns
+      const patterns2 = [
+        "horizontal",
+        "vertical",
+        "diagonal",
+        "innerSquare",
+        "outerSquare",
+        "x",
+      ];
+
+      // Show a few key combinations
+      const keyCombinations2 = [
+        ["horizontal", "vertical"],
+        ["horizontal", "diagonal"],
+        ["horizontal", "outerSquare"],
+        ["vertical", "diagonal"],
+        ["diagonal", "outerSquare"],
+        ["innerSquare", "outerSquare"],
+      ];
+
+      for (const combo of keyCombinations2) {
+        const grid = emptyGrid();
+        applyPattern(grid, combo[0]);
+        applyPattern(grid, combo[1]);
+        results.push(grid);
       }
       break;
 
     case "3line":
-      for (let r1 = 0; r1 < 5; r1++) {
-        for (let r2 = r1 + 1; r2 < 5; r2++) {
-          for (let r3 = r2 + 1; r3 < 5; r3++) {
-            const grid = emptyGrid();
-            for (let c = 0; c < 5; c++) {
-              grid[r1][c] = true;
-              grid[r2][c] = true;
-              grid[r3][c] = true;
-            }
-            results.push(grid);
-          }
-        }
+      // Generate multiple combinations of 3 patterns from the 6 specific patterns
+      const patterns3 = [
+        "horizontal",
+        "vertical",
+        "diagonal",
+        "innerSquare",
+        "outerSquare",
+        "x",
+      ];
+
+      // Show a few key combinations
+      const keyCombinations3 = [
+        ["horizontal", "vertical", "diagonal"],
+        ["horizontal", "diagonal", "outerSquare"],
+        ["vertical", "diagonal", "innerSquare"],
+        ["horizontal", "vertical", "outerSquare"],
+        ["diagonal", "innerSquare", "outerSquare"],
+      ];
+
+      for (const combo of keyCombinations3) {
+        const grid = emptyGrid();
+        applyPattern(grid, combo[0]);
+        applyPattern(grid, combo[1]);
+        applyPattern(grid, combo[2]);
+        results.push(grid);
       }
       break;
 

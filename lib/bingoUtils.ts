@@ -153,14 +153,88 @@ export function checkWinningPattern(
   const totalWinningLines =
     winningRows.length + winningColumns.length + winningDiagonals.length;
 
+  // Helper function to check if a specific pattern is completed
+  const checkSpecificPattern = (patternType: string): boolean => {
+    switch (patternType) {
+      case "horizontal":
+        return winningRows.length >= 1;
+      case "vertical":
+        return winningColumns.length >= 1;
+      case "diagonal":
+        return winningDiagonals.length >= 1;
+      case "innerSquare":
+        return innerSquareWin;
+      case "outerSquare":
+        return outerSquareWin;
+      case "x":
+        return diag1Win && diag2Win;
+      default:
+        return false;
+    }
+  };
+
   // Check specific patterns
   switch (pattern) {
-    case "1line":
-      return { isWinner: totalWinningLines >= 1, winningCells };
-    case "2line":
-      return { isWinner: totalWinningLines >= 2, winningCells };
-    case "3line":
-      return { isWinner: totalWinningLines >= 3, winningCells };
+    case "1line": {
+      // Check if any of the 6 specific patterns are completed
+      const specificPatterns = [
+        "horizontal",
+        "vertical",
+        "diagonal",
+        "innerSquare",
+        "outerSquare",
+        "x",
+      ];
+      let completedPatterns = 0;
+
+      for (const patternType of specificPatterns) {
+        if (checkSpecificPattern(patternType)) {
+          completedPatterns++;
+        }
+      }
+
+      return { isWinner: completedPatterns >= 1, winningCells };
+    }
+    case "2line": {
+      // Check 2 or more patterns from the specific set
+      const specificPatterns = [
+        "horizontal",
+        "vertical",
+        "diagonal",
+        "innerSquare",
+        "outerSquare",
+        "x",
+      ];
+      let completedPatterns = 0;
+
+      for (const patternType of specificPatterns) {
+        if (checkSpecificPattern(patternType)) {
+          completedPatterns++;
+        }
+      }
+
+      return { isWinner: completedPatterns >= 2, winningCells };
+    }
+    case "3line": {
+      // Check 3 or more patterns from the specific set
+      const specificPatterns = [
+        "horizontal",
+        "vertical",
+        "diagonal",
+        "innerSquare",
+        "outerSquare",
+        "x",
+      ];
+      let completedPatterns = 0;
+
+      for (const patternType of specificPatterns) {
+        if (checkSpecificPattern(patternType)) {
+          completedPatterns++;
+        }
+      }
+
+      return { isWinner: completedPatterns >= 3, winningCells };
+    }
     case "diagonals":
       return {
         isWinner: winningDiagonals.length >= 1,
@@ -251,6 +325,44 @@ export function testAllPatterns() {
   const result7 = checkWinningPattern(testCard, calledNumbers7, "3line");
   console.log(`   Three rows: ${result7.isWinner ? "✅ PASS" : "❌ FAIL"}`);
   console.log(`   Winning cells: ${result7.winningCells.length}`);
+
+  // Test 8: New 2line pattern logic (exactly 2 specific patterns)
+  console.log("\n8️⃣ Testing new 2line pattern logic:");
+  const calledNumbers8 = [1, 2, 3, 4, 5, 1, 17, 0, 49, 65]; // 1 row + 1 diagonal
+  const result8 = checkWinningPattern(testCard, calledNumbers8, "2line");
+  console.log(
+    `   2line (1 row + 1 diagonal): ${result8.isWinner ? "✅ PASS" : "❌ FAIL"}`
+  );
+
+  const calledNumbers8b = [
+    1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35,
+  ]; // 3 rows (should fail)
+  const result8b = checkWinningPattern(testCard, calledNumbers8b, "2line");
+  console.log(
+    `   2line (3 rows - should fail): ${
+      result8b.isWinner ? "❌ FAIL" : "✅ PASS"
+    }`
+  );
+
+  // Test 9: New 3line pattern logic (exactly 3 specific patterns)
+  console.log("\n9️⃣ Testing new 3line pattern logic:");
+  const calledNumbers9 = [1, 2, 3, 4, 5, 1, 17, 0, 49, 65, 1, 5, 61, 65]; // 1 row + 1 diagonal + outer square
+  const result9 = checkWinningPattern(testCard, calledNumbers9, "3line");
+  console.log(
+    `   3line (1 row + 1 diagonal + outer square): ${
+      result9.isWinner ? "✅ PASS" : "❌ FAIL"
+    }`
+  );
+
+  const calledNumbers9b = [
+    1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35, 46, 47, 48, 49, 50,
+  ]; // 4 rows (should fail)
+  const result9b = checkWinningPattern(testCard, calledNumbers9b, "3line");
+  console.log(
+    `   3line (4 rows - should fail): ${
+      result9b.isWinner ? "❌ FAIL" : "✅ PASS"
+    }`
+  );
 
   console.log("\n🎯 Testing complete!");
 }
