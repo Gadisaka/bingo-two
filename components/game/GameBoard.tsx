@@ -542,6 +542,10 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             selectedCardSetId,
             winning,
           } = JSON.parse(savedSetup);
+          console.log(`🎮 Loading game setup from localStorage:`, {
+            gamePattern,
+            selectedCards: ids?.length,
+          });
           if (gamePattern) setGamePattern(gamePattern);
           if (selectedCardSetId) setselectedCardSetId(selectedCardSetId);
           setBetAmount(betAmount || 0);
@@ -719,24 +723,76 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       return;
     }
 
+    console.log(
+      `🔍 Checking winning pattern for card ${card.id}: pattern="${gamePattern}", calledNumbers=${calledNumbers.length}`
+    );
     const result = checkWinningPattern(card, calledNumbers, gamePattern);
     let isWinner = result.isWinner;
     let status = isWinner ? "win" : "lose";
 
+    console.log(`🎯 Pattern check result:`, {
+      pattern: gamePattern,
+      isWinner: result.isWinner,
+      winningCells: result.winningCells,
+      currentNumber: currentNumber,
+    });
+
     // Check if the current number is part of ANY winning pattern
     if (isWinner) {
-      // Check if current number is part of any winning pattern
-      const hasCurrentNumberInAnyPattern = result.winningCells.some(
-        ({ row, col }) => {
+      // Check if current number is part of the winning pattern
+      // For patterns like innerSquare/outerSquare, check if current number is in the called numbers
+      // that form the winning pattern, not just the specific winning cells
+      let hasCurrentNumberInPattern = false;
+
+      if (gamePattern === "innerSquare" || gamePattern === "outerSquare") {
+        // For square patterns, check if current number is part of the winning pattern
+        // We need to check if the current number is one of the numbers that forms the pattern
+        const columns = ["B", "I", "N", "G", "O"];
+
+        if (gamePattern === "outerSquare") {
+          // Check if current number is one of the 4 corner numbers
+          const cornerNumbers = [
+            card.B[0], // Top-left
+            card.B[4], // Top-right
+            card.O[0], // Bottom-left
+            card.O[4], // Bottom-right
+          ];
+          hasCurrentNumberInPattern = cornerNumbers.includes(currentNumber);
+        } else if (gamePattern === "innerSquare") {
+          // Check if current number is one of the 4 inner corner numbers
+          const innerCornerNumbers = [
+            card.I[1], // Top-left of inner area
+            card.I[3], // Top-right of inner area
+            card.G[1], // Bottom-left of inner area
+            card.G[3], // Bottom-right of inner area
+          ];
+          hasCurrentNumberInPattern =
+            innerCornerNumbers.includes(currentNumber);
+        }
+      } else {
+        // For line/diagonal patterns, check if current number is in the winning cells
+        hasCurrentNumberInPattern = result.winningCells.some(({ row, col }) => {
           const columns = ["B", "I", "N", "G", "O"];
           const num = card[columns[col]][row];
           return num === currentNumber;
-        }
-      );
+        });
+      }
 
-      if (!hasCurrentNumberInAnyPattern) {
+      console.log(`🔍 Current number check:`, {
+        currentNumber,
+        hasCurrentNumberInPattern,
+        pattern: gamePattern,
+        calledNumbers: calledNumbers.slice(-5), // Last 5 called numbers
+      });
+
+      if (!hasCurrentNumberInPattern) {
         isWinner = false;
         status = "not_now";
+        console.log(
+          `❌ Card marked as "not_now" - current number not in pattern`
+        );
+      } else {
+        console.log(`✅ Card confirmed as winner - current number in pattern`);
       }
     }
 

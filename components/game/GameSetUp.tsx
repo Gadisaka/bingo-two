@@ -308,6 +308,11 @@ export default function GameSetup({ onStart }: setUpProps) {
       winning: computeWinningFromTable(selectedCards.length, betAmount),
     };
 
+    console.log(`💾 Saving to localStorage:`, {
+      gamePattern,
+      gamePatternIndex,
+      selectedCards: selectedCards.length,
+    });
     localStorage.setItem("gameSetup", JSON.stringify(data));
     localStorage.setItem("audioFolder", audioFolder);
   }, [
@@ -338,7 +343,11 @@ export default function GameSetup({ onStart }: setUpProps) {
 
   // Sync gamePattern with GAME_PATTERNS array
   useEffect(() => {
-    setGamePattern(GAME_PATTERNS[gamePatternIndex]);
+    const newPattern = GAME_PATTERNS[gamePatternIndex];
+    setGamePattern(newPattern);
+    console.log(
+      `🎯 Pattern changed: ${newPattern} (index: ${gamePatternIndex})`
+    );
   }, [gamePatternIndex]);
 
   const toggleCardSelection = useCallback((cardId: number) => {
