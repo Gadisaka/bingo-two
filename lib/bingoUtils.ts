@@ -1,18 +1,20 @@
 import { BingoCard, BingoPattern } from "@/types/types";
 
-interface WinningResult {
+export interface WinningResult {
   isWinner: boolean;
   winningCells: Array<{ row: number; col: number }>;
+  status: "win" | "lose" | "not_now";
 }
 
 export function checkWinningPattern(
   card: BingoCard,
   calledNumbers: number[],
-  pattern: BingoPattern = "1line"
+  pattern: BingoPattern = "1line",
+  currentNumber?: number
 ): WinningResult {
   const columns = ["B", "I", "N", "G", "O"] as const;
   const size = 5;
-  const winningCells: Array<{ row: number; col: number }> = [];
+  // We'll build winningCells based on the specific pattern that wins
 
   // Helper function to check if a number is called
   const isCalled = (num: number) => calledNumbers.includes(num);
@@ -46,7 +48,6 @@ export function checkWinningPattern(
 
     if (rowWin) {
       winningRows.push(rowCells);
-      winningCells.push(...rowCells);
     }
   }
 
@@ -66,7 +67,7 @@ export function checkWinningPattern(
 
     if (colWin) {
       winningColumns.push(colCells);
-      winningCells.push(...colCells);
+      // winningCells will be built based on the winning pattern
     }
   }
 
@@ -85,7 +86,7 @@ export function checkWinningPattern(
   }
   if (diag1Win) {
     winningDiagonals.push(diag1Cells);
-    winningCells.push(...diag1Cells);
+    // winningCells will be built based on the winning pattern
   }
 
   // Diagonal 2: Top-right to bottom-left
@@ -100,7 +101,7 @@ export function checkWinningPattern(
   }
   if (diag2Win) {
     winningDiagonals.push(diag2Cells);
-    winningCells.push(...diag2Cells);
+    // winningCells will be built based on the winning pattern
   }
 
   // Check X pattern (both diagonals)
@@ -153,101 +154,229 @@ export function checkWinningPattern(
   const totalWinningLines =
     winningRows.length + winningColumns.length + winningDiagonals.length;
 
-  // Helper function to check if a specific pattern is completed
-  const checkSpecificPattern = (patternType: string): boolean => {
-    switch (patternType) {
-      case "horizontal":
-        return winningRows.length >= 1;
-      case "vertical":
-        return winningColumns.length >= 1;
-      case "diagonal":
-        return winningDiagonals.length >= 1;
-      case "innerSquare":
-        return innerSquareWin;
-      case "outerSquare":
-        return outerSquareWin;
-      case "x":
-        return diag1Win && diag2Win;
-      default:
-        return false;
+  // Helper function to check if current number is part of winning pattern
+  const checkCurrentNumberInPattern = (
+    winningCells: Array<{ row: number; col: number }>
+  ): "win" | "not_now" => {
+    if (!currentNumber) return "win"; // No current number to check
+
+    const hasCurrentNumberInPattern = winningCells.some(({ row, col }) => {
+      const num = card[columns[col]][row];
+      return num === currentNumber;
+    });
+
+    // Debug logging for "not_now" cases
+    if (!hasCurrentNumberInPattern) {
+      console.log(
+        `🔍 "not_now" detected: currentNumber=${currentNumber}, winningCells=${winningCells.length} cells`
+      );
+      console.log(`🔍 Winning cells:`, winningCells);
+      console.log(
+        `🔍 Card numbers at winning positions:`,
+        winningCells.map(({ row, col }) => {
+          const num = card[columns[col]][row];
+          return `${row},${col}:${num}`;
+        })
+      );
     }
+
+    return hasCurrentNumberInPattern ? "win" : "not_now";
   };
 
   // Check specific patterns
   switch (pattern) {
     case "1line": {
       // Check if any of the 6 specific patterns are completed
-      const specificPatterns = [
-        "horizontal",
-        "vertical",
-        "diagonal",
-        "innerSquare",
-        "outerSquare",
-        "x",
-      ];
       let completedPatterns = 0;
+      let winningCells: Array<{ row: number; col: number }> = [];
 
-      for (const patternType of specificPatterns) {
-        if (checkSpecificPattern(patternType)) {
-          completedPatterns++;
-        }
+      // Collect ALL winning cells from ALL completed patterns
+      if (winningRows.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningRows.flat()); // Add ALL winning rows
+      }
+      if (winningColumns.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningColumns.flat()); // Add ALL winning columns
+      }
+      if (winningDiagonals.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningDiagonals.flat()); // Add ALL winning diagonals
+      }
+      if (innerSquareWin) {
+        completedPatterns++;
+        winningCells.push(...innerSquareCells); // Add inner square
+      }
+      if (outerSquareWin) {
+        completedPatterns++;
+        winningCells.push(...outerSquareCells); // Add outer square
+      }
+      if (diag1Win && diag2Win) {
+        completedPatterns++;
+        winningCells.push(...xPatternCells); // Add X pattern
       }
 
-      return { isWinner: completedPatterns >= 1, winningCells };
+      // Remove duplicates (in case patterns overlap)
+      const uniqueWinningCells = winningCells.filter(
+        (cell, index, self) =>
+          index ===
+          self.findIndex((c) => c.row === cell.row && c.col === cell.col)
+      );
+
+      const isWinner = completedPatterns >= 1;
+      const status = isWinner
+        ? checkCurrentNumberInPattern(uniqueWinningCells)
+        : "lose";
+      return { isWinner, winningCells: uniqueWinningCells, status };
     }
     case "2line": {
       // Check 2 or more patterns from the specific set
-      const specificPatterns = [
-        "horizontal",
-        "vertical",
-        "diagonal",
-        "innerSquare",
-        "outerSquare",
-        "x",
-      ];
       let completedPatterns = 0;
+      let winningCells: Array<{ row: number; col: number }> = [];
 
-      for (const patternType of specificPatterns) {
-        if (checkSpecificPattern(patternType)) {
-          completedPatterns++;
-        }
+      // Collect ALL winning cells from ALL completed patterns
+      if (winningRows.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningRows.flat()); // Add ALL winning rows
+      }
+      if (winningColumns.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningColumns.flat()); // Add ALL winning columns
+      }
+      if (winningDiagonals.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningDiagonals.flat()); // Add ALL winning diagonals
+      }
+      if (innerSquareWin) {
+        completedPatterns++;
+        winningCells.push(...innerSquareCells); // Add inner square
+      }
+      if (outerSquareWin) {
+        completedPatterns++;
+        winningCells.push(...outerSquareCells); // Add outer square
+      }
+      if (diag1Win && diag2Win) {
+        completedPatterns++;
+        winningCells.push(...xPatternCells); // Add X pattern
       }
 
-      return { isWinner: completedPatterns >= 2, winningCells };
+      // Remove duplicates (in case patterns overlap)
+      const uniqueWinningCells = winningCells.filter(
+        (cell, index, self) =>
+          index ===
+          self.findIndex((c) => c.row === cell.row && c.col === cell.col)
+      );
+
+      const isWinner = completedPatterns >= 2;
+      const status = isWinner
+        ? checkCurrentNumberInPattern(uniqueWinningCells)
+        : "lose";
+      return { isWinner, winningCells: uniqueWinningCells, status };
     }
     case "3line": {
       // Check 3 or more patterns from the specific set
-      const specificPatterns = [
-        "horizontal",
-        "vertical",
-        "diagonal",
-        "innerSquare",
-        "outerSquare",
-        "x",
-      ];
       let completedPatterns = 0;
+      let winningCells: Array<{ row: number; col: number }> = [];
 
-      for (const patternType of specificPatterns) {
-        if (checkSpecificPattern(patternType)) {
-          completedPatterns++;
-        }
+      // Collect ALL winning cells from ALL completed patterns
+      if (winningRows.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningRows.flat()); // Add ALL winning rows
+      }
+      if (winningColumns.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningColumns.flat()); // Add ALL winning columns
+      }
+      if (winningDiagonals.length >= 1) {
+        completedPatterns++;
+        winningCells.push(...winningDiagonals.flat()); // Add ALL winning diagonals
+      }
+      if (innerSquareWin) {
+        completedPatterns++;
+        winningCells.push(...innerSquareCells); // Add inner square
+      }
+      if (outerSquareWin) {
+        completedPatterns++;
+        winningCells.push(...outerSquareCells); // Add outer square
+      }
+      if (diag1Win && diag2Win) {
+        completedPatterns++;
+        winningCells.push(...xPatternCells); // Add X pattern
       }
 
-      return { isWinner: completedPatterns >= 3, winningCells };
+      // Remove duplicates (in case patterns overlap)
+      const uniqueWinningCells = winningCells.filter(
+        (cell, index, self) =>
+          index ===
+          self.findIndex((c) => c.row === cell.row && c.col === cell.col)
+      );
+
+      const isWinner = completedPatterns >= 3;
+      const status = isWinner
+        ? checkCurrentNumberInPattern(uniqueWinningCells)
+        : "lose";
+      return { isWinner, winningCells: uniqueWinningCells, status };
     }
-    case "diagonals":
+    case "diagonals": {
+      const isWinner = winningDiagonals.length >= 1;
+      const winningCells = winningDiagonals.flat();
+      const status = isWinner
+        ? checkCurrentNumberInPattern(winningCells)
+        : "lose";
+      return { isWinner, winningCells, status };
+    }
+    case "x": {
+      const isWinner = diag1Win && diag2Win;
+      const status = isWinner
+        ? checkCurrentNumberInPattern(xPatternCells)
+        : "lose";
+      return { isWinner, winningCells: xPatternCells, status };
+    }
+    case "outerSquare": {
+      const status = outerSquareWin
+        ? checkCurrentNumberInPattern(outerSquareCells)
+        : "lose";
       return {
-        isWinner: winningDiagonals.length >= 1,
-        winningCells: winningDiagonals.flat(),
+        isWinner: outerSquareWin,
+        winningCells: outerSquareCells,
+        status,
       };
-    case "x":
-      return { isWinner: diag1Win && diag2Win, winningCells: xPatternCells };
-    case "outerSquare":
-      return { isWinner: outerSquareWin, winningCells: outerSquareCells };
-    case "innerSquare":
-      return { isWinner: innerSquareWin, winningCells: innerSquareCells };
-    default:
-      return { isWinner: totalWinningLines >= 1, winningCells };
+    }
+    case "innerSquare": {
+      const status = innerSquareWin
+        ? checkCurrentNumberInPattern(innerSquareCells)
+        : "lose";
+      return {
+        isWinner: innerSquareWin,
+        winningCells: innerSquareCells,
+        status,
+      };
+    }
+    default: {
+      // For default case, build winningCells from all winning patterns
+      let winningCells: Array<{ row: number; col: number }> = [];
+      if (winningRows.length >= 1) {
+        winningCells.push(...winningRows.flat());
+      }
+      if (winningColumns.length >= 1) {
+        winningCells.push(...winningColumns.flat());
+      }
+      if (winningDiagonals.length >= 1) {
+        winningCells.push(...winningDiagonals.flat());
+      }
+      // Remove duplicates (in case patterns overlap)
+      const uniqueWinningCells = winningCells.filter(
+        (cell, index, self) =>
+          index ===
+          self.findIndex((c) => c.row === cell.row && c.col === cell.col)
+      );
+
+      const isWinner = totalWinningLines >= 1;
+      const status = isWinner
+        ? checkCurrentNumberInPattern(uniqueWinningCells)
+        : "lose";
+      return { isWinner, winningCells: uniqueWinningCells, status };
+    }
   }
 }
 
@@ -268,40 +397,55 @@ export function testAllPatterns() {
   // Test 1: Single line pattern
   console.log("1️⃣ Testing 1line pattern:");
   const calledNumbers1 = [1, 2, 3, 4, 5]; // Top row
-  const result1 = checkWinningPattern(testCard, calledNumbers1, "1line");
+  const result1 = checkWinningPattern(testCard, calledNumbers1, "1line", 5); // 5 is the current number
   console.log(`   Top row called: ${result1.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Status: ${result1.status}`);
   console.log(`   Winning cells: ${result1.winningCells.length}`);
 
   // Test 2: Two line pattern
   console.log("\n2️⃣ Testing 2line pattern:");
   const calledNumbers2 = [1, 2, 3, 4, 5, 16, 17, 18, 19, 20]; // Top two rows
-  const result2 = checkWinningPattern(testCard, calledNumbers2, "2line");
+  const result2 = checkWinningPattern(testCard, calledNumbers2, "2line", 20); // 20 is the current number
   console.log(
     `   Two rows called: ${result2.isWinner ? "✅ PASS" : "❌ FAIL"}`
   );
+  console.log(`   Status: ${result2.status}`);
   console.log(`   Winning cells: ${result2.winningCells.length}`);
 
   // Test 3: Diagonal pattern
   console.log("\n3️⃣ Testing diagonal pattern:");
   const calledNumbers3 = [1, 17, 0, 49, 65]; // Main diagonal
-  const result3 = checkWinningPattern(testCard, calledNumbers3, "diagonals");
+  const result3 = checkWinningPattern(
+    testCard,
+    calledNumbers3,
+    "diagonals",
+    65
+  ); // 65 is the current number
   console.log(`   Main diagonal: ${result3.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Status: ${result3.status}`);
   console.log(`   Winning cells: ${result3.winningCells.length}`);
 
   // Test 4: X pattern
   console.log("\n4️⃣ Testing X pattern:");
   const calledNumbers4 = [1, 17, 0, 49, 65, 5, 19, 0, 47, 61]; // Both diagonals
-  const result4 = checkWinningPattern(testCard, calledNumbers4, "x");
+  const result4 = checkWinningPattern(testCard, calledNumbers4, "x", 61); // 61 is the current number
   console.log(`   X pattern: ${result4.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Status: ${result4.status}`);
   console.log(`   Winning cells: ${result4.winningCells.length}`);
 
   // Test 5: Outer square pattern (4 corners only)
   console.log("\n5️⃣ Testing outer square pattern (4 corners only):");
   const calledNumbers5 = [1, 5, 61, 65]; // Only the 4 corner cells
-  const result5 = checkWinningPattern(testCard, calledNumbers5, "outerSquare");
+  const result5 = checkWinningPattern(
+    testCard,
+    calledNumbers5,
+    "outerSquare",
+    65
+  ); // 65 is the current number
   console.log(
     `   Outer square corners: ${result5.isWinner ? "✅ PASS" : "❌ FAIL"}`
   );
+  console.log(`   Status: ${result5.status}`);
   console.log(`   Winning cells: ${result5.winningCells.length}`);
   if (result5.isWinner) {
     console.log(
@@ -313,56 +457,67 @@ export function testAllPatterns() {
   // Test 6: Inner square pattern (4 corners only)
   console.log("\n6️⃣ Testing inner square pattern (4 corners only):");
   const calledNumbers6 = [17, 19, 47, 49]; // Only the 4 corner cells of inner area
-  const result6 = checkWinningPattern(testCard, calledNumbers6, "innerSquare");
+  const result6 = checkWinningPattern(
+    testCard,
+    calledNumbers6,
+    "innerSquare",
+    49
+  ); // 49 is the current number
   console.log(
     `   Inner square corners: ${result6.isWinner ? "✅ PASS" : "❌ FAIL"}`
   );
+  console.log(`   Status: ${result6.status}`);
   console.log(`   Winning cells: ${result6.winningCells.length}`);
 
   // Test 7: Three line pattern
   console.log("\n7️⃣ Testing 3line pattern:");
   const calledNumbers7 = [1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35]; // Top three rows
-  const result7 = checkWinningPattern(testCard, calledNumbers7, "3line");
+  const result7 = checkWinningPattern(testCard, calledNumbers7, "3line", 35); // 35 is the current number
   console.log(`   Three rows: ${result7.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  console.log(`   Status: ${result7.status}`);
   console.log(`   Winning cells: ${result7.winningCells.length}`);
 
   // Test 8: New 2line pattern logic (exactly 2 specific patterns)
   console.log("\n8️⃣ Testing new 2line pattern logic:");
   const calledNumbers8 = [1, 2, 3, 4, 5, 1, 17, 0, 49, 65]; // 1 row + 1 diagonal
-  const result8 = checkWinningPattern(testCard, calledNumbers8, "2line");
+  const result8 = checkWinningPattern(testCard, calledNumbers8, "2line", 65); // 65 is the current number
   console.log(
     `   2line (1 row + 1 diagonal): ${result8.isWinner ? "✅ PASS" : "❌ FAIL"}`
   );
+  console.log(`   Status: ${result8.status}`);
 
   const calledNumbers8b = [
     1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35,
   ]; // 3 rows (should fail)
-  const result8b = checkWinningPattern(testCard, calledNumbers8b, "2line");
+  const result8b = checkWinningPattern(testCard, calledNumbers8b, "2line", 35); // 35 is the current number
   console.log(
     `   2line (3 rows - should fail): ${
       result8b.isWinner ? "❌ FAIL" : "✅ PASS"
     }`
   );
+  console.log(`   Status: ${result8b.status}`);
 
   // Test 9: New 3line pattern logic (exactly 3 specific patterns)
   console.log("\n9️⃣ Testing new 3line pattern logic:");
   const calledNumbers9 = [1, 2, 3, 4, 5, 1, 17, 0, 49, 65, 1, 5, 61, 65]; // 1 row + 1 diagonal + outer square
-  const result9 = checkWinningPattern(testCard, calledNumbers9, "3line");
+  const result9 = checkWinningPattern(testCard, calledNumbers9, "3line", 65); // 65 is the current number
   console.log(
     `   3line (1 row + 1 diagonal + outer square): ${
       result9.isWinner ? "✅ PASS" : "❌ FAIL"
     }`
   );
+  console.log(`   Status: ${result9.status}`);
 
   const calledNumbers9b = [
     1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35, 46, 47, 48, 49, 50,
   ]; // 4 rows (should fail)
-  const result9b = checkWinningPattern(testCard, calledNumbers9b, "3line");
+  const result9b = checkWinningPattern(testCard, calledNumbers9b, "3line", 50); // 50 is the current number
   console.log(
     `   3line (4 rows - should fail): ${
       result9b.isWinner ? "❌ FAIL" : "✅ PASS"
     }`
   );
+  console.log(`   Status: ${result9b.status}`);
 
   console.log("\n🎯 Testing complete!");
 }

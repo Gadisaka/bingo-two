@@ -30,7 +30,7 @@ import { WinningAmountDisplay } from "./WinningAmountDisplay";
 import { NumberDisplay } from "./NumberDisplay";
 import { GameStats } from "./GameStats";
 import NumberBoard from "./NumberBoard";
-import { checkWinningPattern } from "@/lib/bingoUtils";
+import { checkWinningPattern, type WinningResult } from "@/lib/bingoUtils";
 import { useGameSession } from "@/lib/hooks/useGameSession";
 
 interface BoardProps {
@@ -726,75 +726,14 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     console.log(
       `🔍 Checking winning pattern for card ${card.id}: pattern="${gamePattern}", calledNumbers=${calledNumbers.length}`
     );
-    const result = checkWinningPattern(card, calledNumbers, gamePattern);
-    let isWinner = result.isWinner;
-    let status = isWinner ? "win" : "lose";
-
-    console.log(`🎯 Pattern check result:`, {
-      pattern: gamePattern,
-      isWinner: result.isWinner,
-      winningCells: result.winningCells,
-      currentNumber: currentNumber,
-    });
-
-    // Check if the current number is part of ANY winning pattern
-    if (isWinner) {
-      // Check if current number is part of the winning pattern
-      // For patterns like innerSquare/outerSquare, check if current number is in the called numbers
-      // that form the winning pattern, not just the specific winning cells
-      let hasCurrentNumberInPattern = false;
-
-      if (gamePattern === "innerSquare" || gamePattern === "outerSquare") {
-        // For square patterns, check if current number is part of the winning pattern
-        // We need to check if the current number is one of the numbers that forms the pattern
-        const columns = ["B", "I", "N", "G", "O"];
-
-        if (gamePattern === "outerSquare") {
-          // Check if current number is one of the 4 corner numbers
-          const cornerNumbers = [
-            card.B[0], // Top-left
-            card.B[4], // Top-right
-            card.O[0], // Bottom-left
-            card.O[4], // Bottom-right
-          ];
-          hasCurrentNumberInPattern = cornerNumbers.includes(currentNumber);
-        } else if (gamePattern === "innerSquare") {
-          // Check if current number is one of the 4 inner corner numbers
-          const innerCornerNumbers = [
-            card.I[1], // Top-left of inner area
-            card.I[3], // Top-right of inner area
-            card.G[1], // Bottom-left of inner area
-            card.G[3], // Bottom-right of inner area
-          ];
-          hasCurrentNumberInPattern =
-            innerCornerNumbers.includes(currentNumber);
-        }
-      } else {
-        // For line/diagonal patterns, check if current number is in the winning cells
-        hasCurrentNumberInPattern = result.winningCells.some(({ row, col }) => {
-          const columns = ["B", "I", "N", "G", "O"];
-          const num = card[columns[col]][row];
-          return num === currentNumber;
-        });
-      }
-
-      console.log(`🔍 Current number check:`, {
-        currentNumber,
-        hasCurrentNumberInPattern,
-        pattern: gamePattern,
-        calledNumbers: calledNumbers.slice(-5), // Last 5 called numbers
-      });
-
-      if (!hasCurrentNumberInPattern) {
-        isWinner = false;
-        status = "not_now";
-        console.log(
-          `❌ Card marked as "not_now" - current number not in pattern`
-        );
-      } else {
-        console.log(`✅ Card confirmed as winner - current number in pattern`);
-      }
-    }
+    const result = checkWinningPattern(
+      card,
+      calledNumbers,
+      gamePattern,
+      currentNumber
+    );
+    const status = result.status;
+    const isWinner = status === "win"; // Only true if status is actually "win"
 
     // NEW CLEAN SYSTEM: Jackpot logic using reports table
     let jackpotResult = { isJackpot: false, jackpotAmount: 0 };
@@ -876,9 +815,13 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       //alfotal
     } else if (status === "not_now") {
       // Do not blacklist or mark as win, just show message
+      console.log(
+        `🔄 Card ${cardId} got "not_now" - can be checked again later`
+      );
       playAudio(`pass.mp3`);
     } else {
       // For lose status, don't automatically blacklist - let user manually lock
+      console.log(`❌ Card ${cardId} lost - can be manually blocked`);
       playAudio(`lose.mp3`);
     }
 
