@@ -468,7 +468,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
       if (
         jackpotInfo &&
-        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0
+        jackpotInfo.jackpotSettings.enabled &&
+        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0 &&
+        totalBetAmount >= jackpotInfo.jackpotSettings.startingAmount
       ) {
         jackpotWon = true;
         jackpotAmount = Math.round(
@@ -479,6 +481,19 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           gameNumber: currentGameNumber,
           jackpotAmount: jackpotAmount,
           totalBet: totalBetAmount,
+          minimumRequired: jackpotInfo.jackpotSettings.startingAmount,
+        });
+      } else if (
+        jackpotInfo &&
+        jackpotInfo.jackpotSettings.enabled &&
+        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0
+      ) {
+        console.log("❌ JACKPOT ELIGIBLE BUT INSUFFICIENT BET:", {
+          gameNumber: currentGameNumber,
+          totalBet: totalBetAmount,
+          minimumRequired: jackpotInfo.jackpotSettings.startingAmount,
+          shortfall:
+            jackpotInfo.jackpotSettings.startingAmount - totalBetAmount,
         });
       }
 
@@ -773,10 +788,12 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       const totalBetAmount = selectedCards.length * (betAmount || 0);
       const currentGameNumber = getTodayGamesCount(); // This game just completed
 
-      // Check if this game number matches jackpot pattern
+      // Check if this game number matches jackpot pattern AND meets minimum bet requirement
       if (
         jackpotInfo &&
-        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0
+        jackpotInfo.jackpotSettings.enabled &&
+        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0 &&
+        totalBetAmount >= jackpotInfo.jackpotSettings.startingAmount
       ) {
         const jackpotAmount = Math.round(
           (totalBetAmount * jackpotInfo.jackpotSettings.percent) / 100
@@ -791,6 +808,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
           gameNumber: currentGameNumber,
           jackpotAmount: jackpotAmount,
           totalBet: totalBetAmount,
+          minimumRequired: jackpotInfo.jackpotSettings.startingAmount,
           matchGap: jackpotInfo.jackpotSettings.matchGap,
           calculation: `${totalBetAmount} * ${jackpotInfo.jackpotSettings.percent}% = ${jackpotAmount}`,
         });
@@ -825,6 +843,18 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         // NEW: Increment localStorage jackpot count immediately
         const newCount = incrementTodayJackpotCount();
         console.log("🎉 JACKPOT COUNT UPDATED IN LOCALSTORAGE:", newCount);
+      } else if (
+        jackpotInfo &&
+        jackpotInfo.jackpotSettings.enabled &&
+        currentGameNumber % jackpotInfo.jackpotSettings.matchGap === 0
+      ) {
+        console.log("❌ JACKPOT ELIGIBLE BUT INSUFFICIENT BET:", {
+          gameNumber: currentGameNumber,
+          totalBet: totalBetAmount,
+          minimumRequired: jackpotInfo.jackpotSettings.startingAmount,
+          shortfall:
+            jackpotInfo.jackpotSettings.startingAmount - totalBetAmount,
+        });
       } else {
         console.log("🎰 GAME NOT JACKPOT ELIGIBLE:", {
           gameNumber: currentGameNumber,
@@ -1198,15 +1228,38 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                 </div>
               </div>
             ) : isJackpotEnabled() && jackpotInfo ? (
-              <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
-                <div>
-                  {getRemainingJackpotsLocal()}/
-                  {jackpotInfo.jackpotSettings.dailyNumber}
+              <>
+                <div className="absolute top-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">
+                  <div>
+                    {getRemainingJackpotsLocal()}/
+                    {jackpotInfo.jackpotSettings.dailyNumber}
+                  </div>
                 </div>
-                {/* <div className="text-xs opacity-75">
-                  Game {getNextGameNumber()}
-                </div> */}
-              </div>
+                {/* Jackpot Amount Display */}
+                <div className="absolute  w-fit left-2 right-2 bg-yellow-500 text-black px-2 py-1 rounded text-3xl font-bold">
+                  <div className="">
+                    {(() => {
+                      const totalBetAmount =
+                        selectedCards.length * (betAmount || 0);
+                      if (
+                        totalBetAmount >=
+                        jackpotInfo.jackpotSettings.startingAmount
+                      ) {
+                        const jackpotAmount = Math.round(
+                          (totalBetAmount *
+                            jackpotInfo.jackpotSettings.percent) /
+                            100
+                        );
+                        return `${jackpotAmount} Birr`;
+                      } else {
+                        return (
+                          <h1 className=" text-xl font-bold">low bet amount</h1>
+                        );
+                      }
+                    })()}
+                  </div>
+                </div>
+              </>
             ) : null}
 
             {/* {!jackpotEnabled && (
