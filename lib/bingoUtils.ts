@@ -396,18 +396,24 @@ export function testAllPatterns() {
 
   // Test 1: Single line pattern
   console.log("1️⃣ Testing 1line pattern:");
-  const calledNumbers1 = [1, 2, 3, 4, 5]; // Top row
-  const result1 = checkWinningPattern(testCard, calledNumbers1, "1line", 5); // 5 is the current number
-  console.log(`   Top row called: ${result1.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  const calledNumbers1 = [1, 16, 31, 46, 61]; // Top row (horizontal: B[0], I[0], N[0], G[0], O[0])
+  const result1 = checkWinningPattern(testCard, calledNumbers1, "1line", 61); // 61 is the current number
+  console.log(
+    `   Top row (horizontal) called: ${
+      result1.isWinner ? "✅ PASS" : "❌ FAIL"
+    }`
+  );
   console.log(`   Status: ${result1.status}`);
   console.log(`   Winning cells: ${result1.winningCells.length}`);
 
   // Test 2: Two line pattern
   console.log("\n2️⃣ Testing 2line pattern:");
-  const calledNumbers2 = [1, 2, 3, 4, 5, 16, 17, 18, 19, 20]; // Top two rows
-  const result2 = checkWinningPattern(testCard, calledNumbers2, "2line", 20); // 20 is the current number
+  const calledNumbers2 = [1, 16, 31, 46, 61, 2, 17, 32, 47, 62]; // Top two rows (horizontal: row 0 + row 1)
+  const result2 = checkWinningPattern(testCard, calledNumbers2, "2line", 62); // 62 is the current number
   console.log(
-    `   Two rows called: ${result2.isWinner ? "✅ PASS" : "❌ FAIL"}`
+    `   Two rows (horizontal) called: ${
+      result2.isWinner ? "✅ PASS" : "❌ FAIL"
+    }`
   );
   console.log(`   Status: ${result2.status}`);
   console.log(`   Winning cells: ${result2.winningCells.length}`);
@@ -471,11 +477,25 @@ export function testAllPatterns() {
 
   // Test 7: Three line pattern
   console.log("\n7️⃣ Testing 3line pattern:");
-  const calledNumbers7 = [1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 31, 32, 0, 34, 35]; // Top three rows
-  const result7 = checkWinningPattern(testCard, calledNumbers7, "3line", 35); // 35 is the current number
-  console.log(`   Three rows: ${result7.isWinner ? "✅ PASS" : "❌ FAIL"}`);
+  const calledNumbers7 = [
+    1, 16, 31, 46, 61, 2, 17, 32, 47, 62, 3, 18, 0, 48, 63,
+  ]; // Top three rows (horizontal: row 0 + row 1 + row 2)
+  const result7 = checkWinningPattern(testCard, calledNumbers7, "3line", 63); // 63 is the current number
+  console.log(
+    `   Three rows (horizontal): ${result7.isWinner ? "✅ PASS" : "❌ FAIL"}`
+  );
   console.log(`   Status: ${result7.status}`);
   console.log(`   Winning cells: ${result7.winningCells.length}`);
+
+  // Test 7b: Vertical pattern (column B)
+  console.log("\n7️⃣b Testing vertical pattern (column B):");
+  const calledNumbers7b = [1, 2, 3, 4, 5]; // Column B (vertical: B[0], B[1], B[2], B[3], B[4])
+  const result7b = checkWinningPattern(testCard, calledNumbers7b, "1line", 5); // 5 is the current number
+  console.log(
+    `   Column B (vertical): ${result7b.isWinner ? "✅ PASS" : "❌ FAIL"}`
+  );
+  console.log(`   Status: ${result7b.status}`);
+  console.log(`   Winning cells: ${result7b.winningCells.length}`);
 
   // Test 8: New 2line pattern logic (exactly 2 specific patterns)
   console.log("\n8️⃣ Testing new 2line pattern logic:");
@@ -520,4 +540,41 @@ export function testAllPatterns() {
   console.log(`   Status: ${result9b.status}`);
 
   console.log("\n🎯 Testing complete!");
+}
+
+// NEW: Function to check if a card should lose based on validation criteria
+export function checkCardValidation(
+  cardId: string,
+  card: BingoCard | undefined,
+  isInGame: boolean,
+  isAlreadyWon: boolean,
+  isAlreadyChecked: boolean
+): { shouldLose: boolean; reason: string } {
+  // Check if card ID is valid
+  if (isNaN(Number(cardId))) {
+    return { shouldLose: true, reason: "Invalid card number" };
+  }
+
+  // Check if card exists
+  if (!card) {
+    return { shouldLose: true, reason: "Card not found" };
+  }
+
+  // Check if card is in current game
+  if (!isInGame) {
+    return { shouldLose: false, reason: "not_in_game" }; // This is handled separately
+  }
+
+  // Check if card already won
+  if (isAlreadyWon) {
+    return { shouldLose: false, reason: "already_won" }; // This is handled separately
+  }
+
+  // Check if card already checked
+  if (isAlreadyChecked) {
+    return { shouldLose: false, reason: "already_checked" }; // This is handled separately
+  }
+
+  // Card passed all validation checks
+  return { shouldLose: false, reason: "valid" };
 }

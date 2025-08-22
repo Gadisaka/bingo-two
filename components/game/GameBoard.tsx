@@ -30,7 +30,11 @@ import { WinningAmountDisplay } from "./WinningAmountDisplay";
 import { NumberDisplay } from "./NumberDisplay";
 import { GameStats } from "./GameStats";
 import NumberBoard from "./NumberBoard";
-import { checkWinningPattern, type WinningResult } from "@/lib/bingoUtils";
+import {
+  checkWinningPattern,
+  checkCardValidation,
+  type WinningResult,
+} from "@/lib/bingoUtils";
 import { useGameSession } from "@/lib/hooks/useGameSession";
 
 interface BoardProps {
@@ -181,6 +185,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
       const extraFiles = [
         "win",
+        "win_classical",
+        "jackpot_winner",
         "lose",
         "cardnotfound",
         "reset",
@@ -246,6 +252,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
       const extraFiles = [
         "win",
+        "win_classical",
+        "jackpot_winner",
         "lose",
         "cardnotfound",
         "reset",
@@ -359,6 +367,22 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       }
     }
   }, []);
+
+  // Helper function to play multiple sounds with proper timing
+  const playMultipleSounds = useCallback(
+    (sounds: Array<{ file: string; delay: number }>) => {
+      // Check if audio is muted
+      const isMuted = localStorage.getItem("audioMuted") === "true";
+      if (isMuted) return;
+
+      sounds.forEach(({ file, delay }) => {
+        setTimeout(() => {
+          playAudio(file);
+        }, delay);
+      });
+    },
+    [playAudio]
+  );
 
   const callNextNumber = useCallback(() => {
     const remaining = allNumbers.filter((n) => !calledNumbers.includes(n));
@@ -683,25 +707,32 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   };
 
   const handleCardCheck = async () => {
-    const cardId = Number.parseInt(inputCardId);
-    if (isNaN(cardId)) {
-      toast.error("Please enter a valid card number");
+    const cardId = inputCardId;
+    const card = currentCardSet.find((c) => c.id === Number.parseInt(cardId));
+    const isInGame = selectedCards.some(
+      (c) => c.id === Number.parseInt(cardId)
+    );
+    const isAlreadyWon = winners.includes(Number.parseInt(cardId));
+    const isAlreadyChecked = blacklistedCards.includes(Number.parseInt(cardId));
+
+    // Use the new validation function from bingoUtils
+    const validation = checkCardValidation(
+      cardId,
+      card,
+      isInGame,
+      isAlreadyWon,
+      isAlreadyChecked
+    );
+
+    if (validation.shouldLose) {
+      toast.error(validation.reason);
       setCheckResult({ status: "lose" });
       setJackpotResult(null);
       return;
     }
 
-    const card = currentCardSet.find((c) => c.id === cardId);
-    if (!card) {
-      toast.error("Card not found");
-      playAudio("cardnotfound.mp3");
-      setCheckResult({ status: "lose" });
-      setJackpotResult(null);
-      return;
-    }
-
-    const isInGame = selectedCards.some((c) => c.id === cardId);
-    if (!isInGame) {
+    // Handle special statuses that aren't "lose"
+    if (validation.reason === "not_in_game") {
       setCheckResult({ status: "not_in_game", card });
       setJackpotResult(null);
       playAudio(`cardnotfound.mp3`);
@@ -709,14 +740,14 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       return;
     }
 
-    if (winners.includes(cardId)) {
+    if (validation.reason === "already_won") {
       setCheckResult({ status: "already_won", card });
       setJackpotResult(null);
       getStatusConfig("already_won").toast();
       return;
     }
 
-    if (blacklistedCards.includes(cardId)) {
+    if (validation.reason === "already_checked") {
       setCheckResult({ status: "already_checked", card });
       setJackpotResult(null);
       getStatusConfig("already_checked").toast();
@@ -806,9 +837,24 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     }
 
     if (isWinner) {
-      playAudio(`win.mp3`);
+      // Play win sound with additional sounds based on win type
+      if (jackpotResult.isJackpot) {
+        // For jackpot wins: win.mp3 + jackpot_winner.mp3
+        playMultipleSounds([
+          { file: "win_classical.mp3", delay: 0 },
+          // { file: "win.mp3", delay: 0 },
+          { file: "jackpot_winner.mp3", delay: 600 },
+        ]);
+      } else {
+        // For regular wins: win.mp3 + win_classical.mp3
+        playMultipleSounds([
+          { file: "win_classical.mp3", delay: 0 },
+          { file: "win.mp3", delay: 600 },
+        ]);
+      }
+
       setWinners((prev) => {
-        const updated = [...prev, cardId];
+        const updated = [...prev, Number.parseInt(cardId)];
         localStorage.setItem("winners", JSON.stringify(updated));
         return updated;
       });
@@ -816,12 +862,16 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     } else if (status === "not_now") {
       // Do not blacklist or mark as win, just show message
       console.log(
-        `🔄 Card ${cardId} got "not_now" - can be checked again later`
+        `🔄 Card ${Number.parseInt(
+          cardId
+        )} got "not_now" - can be checked again later`
       );
       playAudio(`pass.mp3`);
     } else {
       // For lose status, don't automatically blacklist - let user manually lock
-      console.log(`❌ Card ${cardId} lost - can be manually blocked`);
+      console.log(
+        `❌ Card ${Number.parseInt(cardId)} lost - can be manually blocked`
+      );
       playAudio(`lose.mp3`);
     }
 
@@ -1113,7 +1163,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         </div>
         <div className="flex w-full justify-start h-fit  items-start z-10">
           {/* <div className="tot-bet-card ml-4">
-            <h2 className="tot-bet-title font-potta-one text-2xl">
+            <h2 className="tot-bet-title font-potta-one text-3xl">
               Bonus Type
             </h2>
             <div className="tot-bet-display-wrapper">
@@ -1205,8 +1255,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                   alt="bg"
                   className="w-48 h-16 object-cover"
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl mb-1 drop-shadow-lg">
-                  {betAmount} Birr
+                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-4xl mb-1 drop-shadow-lg">
+                  {betAmount} <span className="text-3xl"> Birr</span>
                 </div>
               </div>
             </div>
@@ -1220,8 +1270,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
                   alt="bg"
                   className="w-48 h-16 object-cover"
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl mb-1 drop-shadow-lg">
-                  {winningAmount} Birr
+                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-4xl mb-1 drop-shadow-lg">
+                  {winningAmount} <span className="text-3xl "> Birr</span>
                 </div>
               </div>
             </div>
