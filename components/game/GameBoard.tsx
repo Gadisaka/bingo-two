@@ -13,16 +13,6 @@ import {
   bingoCardsSet6,
 } from "@/lib/bingoData";
 import GameControls from "./GameControls";
-import { Input } from "../ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "../ui/dialog";
-import { Label } from "../ui/label";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
 import { createReport } from "@/lib/api";
@@ -665,8 +655,6 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     }
   }, [jackpotInfo]);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [inputCardId, setInputCardId] = useState("");
   const [checkResult, setCheckResult] = useState<null | {
     status:
       | "win"
@@ -682,39 +670,39 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     const configs = {
       win: {
         bg: "bg-green-100",
-        text: "text-green-800",
-        message: "GOOD BINGO!",
-        toast: () => toast.success("Bingo! This card is a winner!"),
+        text: "text-green-500",
+        message: "አሸንፏል",
+        toast: () => toast.success("አሸንፏል"),
       },
       not_in_game: {
         bg: "bg-yellow-100",
-        text: "text-yellow-800",
-        message: "CARD NOT IN CURRENT GAME",
-        toast: () => toast.warning("This card isn't in the current game"),
+        text: "text-yellow-500",
+        message: "ይህ ካርድ አልተመዘገበም",
+        toast: () => toast.warning("ይህ ካርድ አልተመዘገበም"),
       },
       already_checked: {
         bg: "bg-gray-100",
-        text: "text-red-800",
-        message: "NO BINGO",
-        toast: () => toast.error("Card already checked - No Bingo"),
+        text: "text-red-500",
+        message: "አላሸነፈም",
+        toast: () => toast.error("አላሸነፈም"),
       },
       already_won: {
         bg: "bg-blue-100",
-        text: "text-blue-800",
-        message: "CARD ALREADY WON!",
-        toast: () => toast.info("This card has already won!"),
+        text: "text-blue-500",
+        message: "አሸንፏል",
+        toast: () => toast.info("አሸንፏል"),
       },
       lose: {
         bg: "bg-red-100",
-        text: "text-red-800",
-        message: "NO BINGO",
-        toast: () => toast.error("No Bingo"),
+        text: "text-red-500",
+        message: "አላሸነፈም",
+        toast: () => toast.error("አላሸነፈም"),
       },
       not_now: {
         bg: "bg-orange-100",
-        text: "text-orange-800",
-        message: "አልፎታል።",
-        toast: () => toast("አልፎታል።"),
+        text: "text-orange-500",
+        message: "አልፎታል",
+        toast: () => toast("አልፎታል"),
       },
     };
 
@@ -722,17 +710,25 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   };
 
   const handleCardCheck = async () => {
-    const cardId = inputCardId;
-    const card = currentCardSet.find((c) => c.id === Number.parseInt(cardId));
-    const isInGame = selectedCards.some(
-      (c) => c.id === Number.parseInt(cardId)
-    );
-    const isAlreadyWon = winners.includes(Number.parseInt(cardId));
-    const isAlreadyChecked = blacklistedCards.includes(Number.parseInt(cardId));
+    // Use prompt instead of dialog input
+    const cardId = prompt("Enter card number to check:");
+    if (!cardId || cardId.trim() === "") return;
+
+    // Validate that it's a valid number
+    const parsedId = Number.parseInt(cardId);
+    if (isNaN(parsedId)) {
+      toast.error("Please enter a valid card number");
+      return;
+    }
+
+    const card = currentCardSet.find((c) => c.id === parsedId);
+    const isInGame = selectedCards.some((c) => c.id === parsedId);
+    const isAlreadyWon = winners.includes(parsedId);
+    const isAlreadyChecked = blacklistedCards.includes(parsedId);
 
     // Use the new validation function from bingoUtils
     const validation = checkCardValidation(
-      cardId,
+      parsedId.toString(),
       card,
       isInGame,
       isAlreadyWon,
@@ -741,7 +737,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
     if (validation.shouldLose) {
       toast.error(validation.reason);
-      setCheckResult({ status: "lose" });
+      setCheckResult({ status: "lose", card });
       setJackpotResult(null);
       return;
     }
@@ -884,7 +880,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       }
 
       setWinners((prev) => {
-        const updated = [...prev, Number.parseInt(cardId)];
+        const updated = [...prev, parsedId];
         localStorage.setItem("winners", JSON.stringify(updated));
         return updated;
       });
@@ -892,28 +888,20 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     } else if (status === "not_now") {
       // Do not blacklist or mark as win, just show message
       console.log(
-        `🔄 Card ${Number.parseInt(
-          cardId
-        )} got "not_now" - can be checked again later`
+        `🔄 Card ${parsedId} got "not_now" - can be checked again later`
       );
       playAudio(`pass.mp3`);
     } else {
       // For lose status, don't automatically blacklist - let user manually lock
-      console.log(
-        `❌ Card ${Number.parseInt(cardId)} lost - can be manually blocked`
-      );
+      console.log(`❌ Card ${parsedId} lost - can be manually blocked`);
       playAudio(`lose.mp3`);
     }
 
     setCheckResult({ status: status as (typeof checkResult)["status"], card });
     setJackpotResult(jackpotResult);
     getStatusConfig(status).toast();
-  };
 
-  const resetModal = () => {
-    setInputCardId("");
-    setCheckResult(null);
-    setJackpotResult(null);
+    // No need to show dialog since we removed it
   };
 
   const handleBlockCard = () => {
@@ -949,12 +937,12 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         : [];
 
     return (
-      <div className="grid grid-cols-5 gap-1 mb-4 text-center font-bold w-fit mx-auto">
-        <div className="bg-blue-500 text-white p-1 rounded">B</div>
+      <div className="grid grid-cols-5 gap-1 bg-white mb-4 text-center font-bold w-fit mx-auto">
+        {/* <div className="bg-blue-500 text-white p-1 rounded">B</div>
         <div className="bg-red-500 text-white p-1 rounded">I</div>
         <div className="bg-green-500 text-white p-1 rounded">N</div>
         <div className="bg-yellow-600 text-white p-1 rounded">G</div>
-        <div className="bg-purple-500 text-white p-1 rounded">O</div>
+        <div className="bg-purple-500 text-white p-1 rounded">O</div> */}
 
         {Array.from({ length: 5 }).map((_, rowIndex) =>
           ["B", "I", "N", "G", "O"].map((letter, colIndex) => {
@@ -970,15 +958,15 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               <div
                 key={`${letter}-${rowIndex}`}
                 className={cn(
-                  "border p-1 text-center font-bold w-10 h-10 flex  items-center justify-center bg-white text-black",
-                  num === 0 ? "bg-yellow-600 text-black border-gray-700" : "",
-                  isCalled ? "bg-orange-500 text-white" : "border-gray-700",
+                  "border p-1 text-center font-bold w-10 h-10 flex text-2xl font-varsity items-center justify-center bg-white text-black",
+                  String(num) === "FREE" ? "bg-orange-500 text-black " : "",
+                  isCalled ? "bg-orange-500 rounded-full" : "",
                   isCurrent ? "border-4 border-red-500" : "",
-                  isWinningCell ? "!bg-green-500 !text-white" : ""
+                  isWinningCell ? "!bg-green-600 !text-white rounded-none" : ""
                 )}
               >
-                {num === 0 ? (
-                  <div className="text-xs leading-tight">FREE</div>
+                {String(num) === "FREE" ? (
+                  <div className=" leading-tight">f</div>
                 ) : (
                   num
                 )}
@@ -1014,8 +1002,26 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     };
   }, []);
 
+  // Add click listener to hide result display when anything is clicked
+  useEffect(() => {
+    const handleDocumentClick = () => {
+      if (checkResult) {
+        setCheckResult(null);
+        setJackpotResult(null);
+      }
+    };
+
+    // Add click listener to document
+    document.addEventListener("click", handleDocumentClick);
+
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, [checkResult]);
+
   return (
-    <div className="flex flex-col justify-start items-center h-screen px-6  relative overflow-hidden z-0">
+    <div className="flex flex-col justify-start  items-center h-screen px-6  relative overflow-hidden z-0">
       {/* Diamond Pattern Overlay */}
       {/* <svg
         className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
@@ -1046,126 +1052,6 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         alt="bg"
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
       />
-      <Dialog
-        open={isModalOpen}
-        onOpenChange={(open) => {
-          setIsModalOpen(open);
-          if (!open) resetModal();
-        }}
-      >
-        <DialogContent className="max-w-md w-[95vw] z-50 bg-[#09519E] text-xl shadow text-white ">
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
-            xmlns="http://www.w3.org/2000/svg"
-            preserveAspectRatio="xMidYMid slice"
-          >
-            <defs>
-              <pattern
-                id="diamondPattern"
-                x="0"
-                y="0"
-                width="20"
-                height="20"
-                patternUnits="userSpaceOnUse"
-              >
-                <path
-                  d="M10 0 L20 10 L10 20 L0 10 Z"
-                  stroke="white"
-                  strokeWidth="0.5"
-                  fill="none"
-                />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#diamondPattern)" />
-          </svg>
-          <DialogHeader>
-            <DialogTitle className="text-yellow-300 font-bold">
-              Check Bingo Card
-            </DialogTitle>
-            <DialogDescription className="text-white text-sm">
-              Enter the card number to check if it has a winning pattern.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="card-number">Card Number</Label>
-              <Input
-                id="card-number"
-                value={inputCardId}
-                onChange={(e) => setInputCardId(e.target.value)}
-                type="number"
-                min="1"
-                onKeyDown={(e) => e.key === "Enter" && handleCardCheck()}
-                className="bg-white text-black"
-              />
-            </div>
-
-            {inputCardId && checkResult?.card && (
-              <>
-                {!(
-                  checkResult.status === "already_checked" ||
-                  checkResult.status === "not_in_game"
-                ) && renderCardGrid(Number.parseInt(inputCardId))}
-
-                <div
-                  className={cn(
-                    "p-4 rounded text-center font-bold text-lg",
-                    getStatusConfig(checkResult.status).bg,
-                    getStatusConfig(checkResult.status).text
-                  )}
-                >
-                  {getStatusConfig(checkResult.status).message}
-                  {/* Jackpot message */}
-                  {checkResult.status === "win" && jackpotResult?.isJackpot && (
-                    <div className="mt-2 p-3 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 rounded-lg border-2 border-yellow-400 shadow-lg">
-                      <div className="text-center">
-                        <div className="text-3xl mb-1">🎉</div>
-                        <div className="text-4xl font-black text-yellow-300 mb-1 drop-shadow-xl">
-                          JACKPOT WINNER!
-                        </div>
-                        <div className="text-xl font-bold text-yellow-200 mt-1 drop-shadow-lg">
-                          Jackpot Amount:
-                        </div>
-                        <div className="text-3xl font-black text-yellow-300 mt-1 drop-shadow-lg">
-                          {jackpotResult.jackpotAmount} Birr
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Block button for not_now status */}
-                {checkResult.status === "not_now" && (
-                  <button
-                    onClick={handleBlockCard}
-                    className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-red-400 to-red-500 text-white font-bold text-lg px-6 py-2 rounded-md shadow-inner shadow-red-700 ring-2 ring-red-600 mb-2"
-                  >
-                    Lock Card
-                  </button>
-                )}
-
-                {/* Manual lock button for lose status */}
-                {checkResult.status === "lose" && (
-                  <button
-                    onClick={handleBlockCard}
-                    className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-red-400 to-red-500 text-white font-bold text-lg px-6 py-2 rounded-md shadow-inner shadow-red-700 ring-2 ring-red-600 mb-2"
-                  >
-                    Lock Card
-                  </button>
-                )}
-              </>
-            )}
-
-            <button
-              onClick={handleCardCheck}
-              disabled={!inputCardId}
-              className="w-full bg-gradient-to-b cursor-pointer hover:opacity-90 from-yellow-400 to-yellow-500 text-black font-bold text-xl px-6 py-2 rounded-md shadow-inner shadow-yellow-700 ring-2 ring-yellow-600 "
-            >
-              Check Card
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <div className="flex flex-col justify-between ml-10 z-10 items-center w-full h-full">
         {/* <GameStats
@@ -1191,6 +1077,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
             currentNumber={currentNumber}
           />
         </div>
+
         <div className="flex w-full justify-start h-fit  items-start z-10">
           {/* <div className="tot-bet-card ml-4">
             <h2 className="tot-bet-title font-potta-one text-3xl">
@@ -1295,11 +1182,104 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               </>
             )} */}
           </div>
+          {/* Card Check Result Display */}
+          {checkResult && checkResult.card && (
+            <div className="w-full flex justify-center z-10">
+              <div className=" text-white w-1/2">
+                <div className="flex gap-6">
+                  {/* Left Side - Jackpot Result */}
+                  <div className="flex-1">
+                    {checkResult.status === "win" &&
+                      jackpotResult?.isJackpot && (
+                        <div className="p-4 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 rounded-lg border-2 border-yellow-400 shadow-lg">
+                          <div className="text-center">
+                            <div className="text-3xl mb-1">🎉</div>
+                            <div className="text-4xl font-black text-yellow-300 mb-1 drop-shadow-xl">
+                              JACKPOT WINNER!
+                            </div>
+                            <div className="text-xl font-bold text-yellow-200 mt-1 drop-shadow-lg">
+                              Jackpot Amount:
+                            </div>
+                            <div className="text-3xl font-black text-yellow-300 mt-1 drop-shadow-lg">
+                              {jackpotResult.jackpotAmount} Birr
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Center - Card Grid */}
+                  <div className="flex-1">
+                    {!(
+                      checkResult.status === "already_checked" ||
+                      checkResult.status === "not_in_game"
+                    ) && renderCardGrid(checkResult.card.id)}
+                  </div>
+
+                  {/* Right Side - Game Result */}
+                  <div className="flex-1 flex flex-col items-center justify-center">
+                    {/* Result Message */}
+                    <div
+                      className={cn(
+                        "p-4 rounded text-center font-bold text-4xl",
+                        // getStatusConfig(checkResult.status).bg,
+                        getStatusConfig(checkResult.status).text
+                      )}
+                    >
+                      {getStatusConfig(checkResult.status).message}
+                      <h1 className="text-orange-500">
+                        ካርድ ቁጥር: {checkResult.card.id}
+                      </h1>
+                    </div>
+                    <div className="flex gap-2 mt-4 justify-center">
+                      {/* Block button for not_now status */}
+                      {checkResult.status === "not_now" && (
+                        <button
+                          className="relative text-white cursor-pointer font-bold text-2xl h-12 w-44 px-6 py-3"
+                          onClick={handleBlockCard}
+                        >
+                          <img
+                            src="/button_bg.png"
+                            alt="bg"
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                          <span className="relative font-varsity z-10">
+                            lock
+                          </span>
+                        </button>
+                      )}
+
+                      {/* Manual lock button for lose status */}
+                      {checkResult.status === "lose" && (
+                        <button
+                          className="relative text-white cursor-pointer font-bold text-2xl h-12 w-44 px-6 py-3"
+                          onClick={handleBlockCard}
+                        >
+                          <img
+                            src="/button_bg.png"
+                            alt="bg"
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                          <span className="relative font-varsity z-10">
+                            lock
+                          </span>
+                        </button>
+                      )}
+
+                      {/* Always show a button for other statuses */}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons - Always Visible */}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex w-full justify-around px items-center gap-4 mb-22 z-10">
           <div className="flex w-fit items-center gap-4 ">
             <div className="flex flex-col items-center justify-center">
-              <h2 className="font-bold text-3xl text-white mb-2 drop-shadow-lg">
+              <h2 className="font-bold text-3xl text-white mb-2 font-varsity drop-shadow-lg">
                 BET
               </h2>
               <div className="relative">
@@ -1314,7 +1294,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               </div>
             </div>
             <div className="flex flex-col items-center">
-              <h2 className="font-bold text-3xl text-white mb-2 drop-shadow-lg">
+              <h2 className="font-bold text-3xl text-white mb-2 font-varsity drop-shadow-lg">
                 TOT BET
               </h2>
               <div className="relative">
@@ -1348,7 +1328,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               if (autoCall) {
                 toggleAutoCall(); // stop auto play
               }
-              setIsModalOpen(true);
+              handleCardCheck(); // Call the card check function directly
             }}
             callNextNumber={callNextNumber}
             debugJackpot={() => {
@@ -1363,7 +1343,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/5 bg-opacity-50 h-full w-full flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/5 bg-opacity-50 h-full font-varsity w-full flex items-center justify-center z-50">
           <div className="relative w-full h-full">
             <img
               src="/small_bg.png"

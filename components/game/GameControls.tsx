@@ -68,7 +68,7 @@ export default function GameControls({
   };
 
   return (
-    <div className="p-4 w-fit">
+    <div className="p-4 font-varsity w-fit">
       <div className="space-y-2 flex gap-4 md:gap-20 flex-col md:flex-row">
         {/* <div className="flex flex-col gap-2 justify-center items-center w-full"> */}
         <div className="flex ">

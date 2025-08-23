@@ -776,7 +776,7 @@ export default function GameSetup({ onStart }: setUpProps) {
 
             {/* Numbers Grid */}
             <div className="flex-1 overflow-auto p-10 pt-20">
-              <div className="grid grid-cols-15 gap-5 w-full">
+              <div className="grid grid-cols-15 gap-5 w-full ">
                 {Array.from({ length: 150 }, (_, i) => i + 1).map((number) => (
                   <button
                     key={number}
@@ -1175,7 +1175,7 @@ export default function GameSetup({ onStart }: setUpProps) {
             {currentCards.map((card) => (
               <div
                 key={card.id}
-                className={`flex justify-center items-center w-32 h-32 rounded-full shadow-lg ${
+                className={`flex justify-center font-varsity items-center w-32 h-32 rounded-full shadow-lg ${
                   selectedCards.includes(Number(card.id))
                     ? "bg-orange-500"
                     : "bg-gray-300"
@@ -1186,7 +1186,7 @@ export default function GameSetup({ onStart }: setUpProps) {
                     type="button"
                     onClick={() => toggleCardSelection(Number(card.id))}
                     className={cn(
-                      "w-24 h-24 rounded-full text-4xl font-normal flex items-center justify-center transition-colors",
+                      "w-24 h-24 rounded-full text-8xl font-normal flex items-center justify-center transition-colors",
                       selectedCards.includes(Number(card.id))
                         ? "bg-orange-500 text-white shadow-lg"
                         : "bg-gray-300 text-gray-900 hover:bg-gray-400"
@@ -1245,9 +1245,7 @@ export default function GameSetup({ onStart }: setUpProps) {
       <div className="flex items-center justify-between gap-2 mt-16 px-6 w-1/2 mx-auto">
         <div className="flex items-center justify-center gap-4">
           <div className="flex flex-col justify-center items-center gap-2">
-            <h1 className="text-xl white font-bold text-white font-potta-one">
-              Game Type
-            </h1>
+            <h1 className="text-xl white font-bold text-white">Game Type</h1>
             <div className="counter-container">
               <button
                 className={`counter-button ${
@@ -1277,9 +1275,7 @@ export default function GameSetup({ onStart }: setUpProps) {
             </div>
           </div>
           <div className="flex flex-col justify-center items-center gap-2">
-            <h1 className="text-xl white font-bold text-white font-potta-one">
-              Bet
-            </h1>
+            <h1 className="text-xl white font-bold text-white ">Bet</h1>
             <div className="counter-container">
               <button
                 className={`counter-button ${
@@ -1313,7 +1309,7 @@ export default function GameSetup({ onStart }: setUpProps) {
         <button
           onClick={handleStartGame}
           disabled={!canGameProceed()}
-          className={`px-7 cursor-pointer py-4 text-4xl yellow-card-button ${
+          className={`px-7 cursor-pointer font-varsity py-4 text-4xl yellow-card-button ${
             !canGameProceed()
               ? "bg-gray-300 text-gray-900 cursor-not-allowed"
               : ""

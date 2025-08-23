@@ -27,9 +27,9 @@ export const NumberDisplay = ({
   currentNumber,
 }: NumberDisplayProps) => {
   return (
-    <div className="relative flex flex-col items-center">
+    <div className="relative font-varsity flex flex-col items-center">
       {/* Background Image Container */}
-      <div className="relative w-80 h-80">
+      <div className="relative w-88 h-88">
         <img
           src="/number_extract_bg.png"
           alt="bg"
@@ -42,7 +42,7 @@ export const NumberDisplay = ({
             {/* Layered circles */}
             <div
               key={currentNumber}
-              className="relative w-64 mb-4 h-64 flex items-center justify-center animate-slideInFromLeft"
+              className="relative w-72 mb-4 h-72 flex items-center justify-center animate-slideInFromLeft"
             >
               {/* Outer colored circle */}
               <div
@@ -51,17 +51,17 @@ export const NumberDisplay = ({
                 )}`}
               ></div>
               {/* Thin white circle */}
-              <div className="absolute inset-8 rounded-full bg-white"></div>
+              <div className="absolute inset-9 rounded-full bg-white"></div>
               {/* Thin colored circle */}
               <div
-                className={`absolute inset-9 rounded-full ${getNumberColor(
+                className={`absolute inset-10 rounded-full ${getNumberColor(
                   currentNumber
                 )}`}
               ></div>
               {/* White background for number */}
-              <div className="absolute inset-11 rounded-full bg-white flex items-center justify-center">
+              <div className="absolute inset-12 rounded-full bg-white flex items-center justify-center">
                 <div className="relative w-full h-full flex items-center justify-center">
-                  <span className="text-black text-9xl font-bold">
+                  <span className="text-black text-[140px] font-bold">
                     {currentNumber ? currentNumber : "?"}
                   </span>
                 </div>
@@ -73,7 +73,7 @@ export const NumberDisplay = ({
         {/* Counter Overlay - Positioned in the rectangular card part */}
         <div className="absolute bottom-2 z-20 left-0 right-0 flex items-center justify-center pb-4">
           <div className="text-center z-10">
-            <div className="text-white text-4xl font-bold drop-shadow-lg">
+            <div className="text-white text-5xl font-bold drop-shadow-lg">
               {calledNumbers.length}
               <span className="mx-1">/</span>75
             </div>

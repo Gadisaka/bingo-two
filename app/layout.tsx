@@ -11,6 +11,7 @@ import {
   Ubuntu,
   Potta_One,
 } from "next/font/google";
+import localFont from "next/font/local";
 
 const acme = Acme({
   subsets: ["latin"],
@@ -42,8 +43,13 @@ const pottaOne = Potta_One({
   variable: "--font-potta-one",
 });
 
+const varsity = localFont({
+  src: "../public/font/Varsity.otf",
+  variable: "--font-varsity",
+});
+
 export const metadata: Metadata = {
-  title: "Bingo",
+  title: "Gold Bingo",
   description: "Bingo Game Shop",
 };
 
@@ -56,7 +62,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${acme.variable} ${josefin.variable} ${pacifico.variable} ${styleScript.variable} ${ubuntu.variable} ${pottaOne.variable}`}
+      className={`${acme.variable} ${josefin.variable} ${pacifico.variable} ${styleScript.variable} ${ubuntu.variable} ${pottaOne.variable} ${varsity.variable}`}
     >
       <body className={`antialiased`}>
         <ThemeProvider>

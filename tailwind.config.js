@@ -20,6 +20,7 @@ module.exports = {
         pacifico: ["var(--font-pacifico)"],
         styleScript: ["var(--font-style-script)"],
         ubuntu: ["var(--font-ubuntu)"],
+        varsity: ["var(--font-varsity)"],
       },
       colors: {
         // Light mode colors

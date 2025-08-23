@@ -72,21 +72,21 @@ export default function NumberBoard({
   };
 
   return (
-    <div className="flex gap-2 bg-white items-center h-full">
-      <div className="flex flex-col p-2  justify-between items-center h-full  text-xl ">
+    <div className="flex font-varsity bg-white items-center h-fit w-fit">
+      <div className="flex flex-col p-1  justify-between items-center h-fit  text-xl ">
         {["B", "I", "N", "G", "O"].map((letter) => (
           <div
             key={letter}
-            className="w-[50px] h-[50px]  bg-white ring-4 ring-orange-500 flex items-center justify-center font-bold "
+            className="w-[58px] h-[58px]  bg-white ring-4 ring-orange-500 flex items-center justify-center font-bold"
           >
-            <h1 className=" bg-white  text-black font-bold text-4xl flex items-center justify-center ">
+            <h1 className=" bg-white  text-black font-bold text-6xl flex items-center justify-center ">
               {letter}
             </h1>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-15 gap-y-1">
+      <div className="grid grid-cols-15 gap-1 p-">
         {allNumbers.map((num, index) => {
           const letter = getLetterForNumber(num);
           const isCalled = calledNumbers.includes(num);
@@ -120,7 +120,7 @@ export default function NumberBoard({
             <div
               key={num}
               className={cn(
-                "w-[62px] h-[67px] flex items-center justify-center  text-5xl font-bold",
+                "w-[56px] h-[56px] font-varsity flex items-center justify-center text-4xl font-bold",
                 reset
                   ? "transition-colors duration-75"
                   : "transition-colors duration-300",
@@ -136,7 +136,7 @@ export default function NumberBoard({
             >
               <div
                 className={cn(
-                  "relative w-[50px] h-[50px] bg-white flex text-5xl items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
+                  "relative w-[56px] h-[56px] bg-white flex text-6xl items-center justify-center overflow-hidden shadow-inner font-bold transition-all duration-300",
                   isCalled
                     ? "ring-2 ring-orange-500 text-black shadow-lg"
                     : " text-white",
