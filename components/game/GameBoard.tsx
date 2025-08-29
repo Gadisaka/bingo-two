@@ -958,7 +958,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               <div
                 key={`${letter}-${rowIndex}`}
                 className={cn(
-                  "border p-1 text-center font-bold w-12 h-12 flex text-2xl font-varsity items-center justify-center bg-white text-black",
+                  "border p-1 text-center font-bold w-12 h-12 flex text-3xl font-varsity items-center justify-center bg-white text-black",
                   String(num) === "FREE" ? "bg-orange-500 text-black " : "",
                   isCalled ? "bg-orange-500 rounded-full" : "",
                   isCurrent ? "border-4 border-red-500" : "",
