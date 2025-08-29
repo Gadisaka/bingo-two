@@ -6,12 +6,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cashierId = parseInt((await params).id);
-    if (isNaN(cashierId)) {
-      return NextResponse.json(
-        { error: "Invalid cashier ID" },
-        { status: 400 }
-      );
+    const agentId = parseInt((await params).id);
+    if (isNaN(agentId)) {
+      return NextResponse.json({ error: "Invalid agent ID" }, { status: 400 });
     }
 
     const today = new Date();
@@ -24,7 +21,7 @@ export async function GET(
       await Promise.all([
         prisma.report.aggregate({
           where: {
-            cashier: { agentId: cashierId },
+            cashier: { agentId: agentId },
             date: { gte: today }, // ✅ use date instead of createdAt
           },
           _count: { _all: true },
@@ -32,7 +29,7 @@ export async function GET(
         }),
         prisma.report.aggregate({
           where: {
-            cashier: { agentId: cashierId },
+            cashier: { agentId: agentId },
             date: { gte: oneWeekAgo },
           },
           _count: { _all: true },
@@ -40,13 +37,13 @@ export async function GET(
         }),
         prisma.report.aggregate({
           where: {
-            cashier: { agentId: cashierId },
+            cashier: { agentId: agentId },
           },
           _count: { _all: true },
           _sum: { revenue: true },
         }),
         prisma.cashier.count({
-          where: { agentId: parseInt((await params).id) },
+          where: { agentId: agentId },
         }),
       ]);
 
@@ -66,9 +63,9 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[CASHIER_STATS_ERROR]", error);
+    console.error("[AGENT_STATS_ERROR]", error);
     return NextResponse.json(
-      { error: "Failed to fetch stats" },
+      { error: "Failed to fetch agent stats" },
       { status: 500 }
     );
   }

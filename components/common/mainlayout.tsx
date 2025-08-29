@@ -19,6 +19,7 @@ type SidebarItem = {
   name: string;
   icon: React.ReactNode;
   path: string;
+  external?: boolean;
 };
 
 type TopbarAction = {
@@ -145,27 +146,46 @@ export default function DashboardLayout({
             <ul className="space-y-1">
               {sidebarItems.map((item) => (
                 <li key={item.path}>
-                  <Link
-                    href={item.path}
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors
-                      ${
-                        pathname === item.path
-                          ? darkMode
-                            ? "bg-gray-700 text-blue-400"
-                            : "bg-gray-50 text-blue-600"
-                          : darkMode
-                          ? "text-gray-300 hover:bg-gray-800"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }
-                    `}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <span className="mr-3">{item.icon}</span>
-                    {item.name}
-                    {pathname === item.path && (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Link>
+                  {item.external ? (
+                    <a
+                      href={item.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors
+                        ${
+                          darkMode
+                            ? "text-gray-300 hover:bg-gray-800"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }
+                      `}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <span className="mr-3">{item.icon}</span>
+                      {item.name}
+                    </a>
+                  ) : (
+                    <Link
+                      href={item.path}
+                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors
+                        ${
+                          pathname === item.path
+                            ? darkMode
+                              ? "bg-gray-700 text-blue-400"
+                              : "bg-gray-50 text-blue-600"
+                            : darkMode
+                            ? "text-gray-300 hover:bg-gray-800"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }
+                      `}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <span className="mr-3">{item.icon}</span>
+                      {item.name}
+                      {pathname === item.path && (
+                        <ChevronRight className="ml-auto h-4 w-4" />
+                      )}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

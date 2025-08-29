@@ -156,7 +156,7 @@ export default function AgentTable({
                 </TableCell>
               </TableRow>
             ))
-          ) : agents.length === 0 ? (
+          ) : !agents || agents.length === 0 ? (
             <TableRow>
               <TableCell
                 colSpan={7}
@@ -166,7 +166,7 @@ export default function AgentTable({
               </TableCell>
             </TableRow>
           ) : (
-            agents.map((agent) => (
+            agents?.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell>{agent.id}</TableCell>
                 <TableCell>{agent.name}</TableCell>

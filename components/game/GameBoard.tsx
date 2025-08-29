@@ -937,7 +937,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         : [];
 
     return (
-      <div className="grid grid-cols-5 gap-1 bg-white mb-4 text-center font-bold w-fit mx-auto">
+      <div className="grid grid-cols-5 gap-1 bg-white mb-4 text-center font-bold w-[250px] p-2">
         {/* <div className="bg-blue-500 text-white p-1 rounded">B</div>
         <div className="bg-red-500 text-white p-1 rounded">I</div>
         <div className="bg-green-500 text-white p-1 rounded">N</div>
@@ -958,7 +958,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               <div
                 key={`${letter}-${rowIndex}`}
                 className={cn(
-                  "border p-1 text-center font-bold w-10 h-10 flex text-2xl font-varsity items-center justify-center bg-white text-black",
+                  "border p-1 text-center font-bold w-12 h-12 flex text-2xl font-varsity items-center justify-center bg-white text-black",
                   String(num) === "FREE" ? "bg-orange-500 text-black " : "",
                   isCalled ? "bg-orange-500 rounded-full" : "",
                   isCurrent ? "border-4 border-red-500" : "",

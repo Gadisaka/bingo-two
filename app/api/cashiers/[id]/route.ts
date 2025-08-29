@@ -225,3 +225,109 @@ export async function PUT(
     );
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const data = await request.json();
+    const cashierId = parseInt((await params).id);
+
+    if (isNaN(cashierId)) {
+      return NextResponse.json(
+        { error: "Invalid cashier ID" },
+        { status: 400 }
+      );
+    }
+
+    // Check if cashier exists
+    const existingCashier = await prisma.cashier.findUnique({
+      where: { id: cashierId },
+    });
+
+    if (!existingCashier) {
+      return NextResponse.json({ error: "Cashier not found" }, { status: 404 });
+    }
+
+    // Update only the status field
+    const updatedCashier = await prisma.cashier.update({
+      where: { id: cashierId },
+      data: {
+        status: data.isActive ? "ACTIVE" : "INACTIVE",
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        status: true,
+        createdAt: true,
+        agentId: true,
+      },
+    });
+
+    return NextResponse.json(updatedCashier);
+  } catch (error) {
+    console.error("Cashier PATCH error:", error);
+    return NextResponse.json(
+      { error: "Failed to update cashier status" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const cashierId = parseInt((await params).id);
+
+    if (isNaN(cashierId)) {
+      return NextResponse.json(
+        { error: "Invalid cashier ID" },
+        { status: 400 }
+      );
+    }
+
+    // Check if cashier exists
+    const existingCashier = await prisma.cashier.findUnique({
+      where: { id: cashierId },
+    });
+
+    if (!existingCashier) {
+      return NextResponse.json({ error: "Cashier not found" }, { status: 404 });
+    }
+
+    // Delete the cashier and all related data in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete all reports associated with this cashier
+      await tx.report.deleteMany({
+        where: { cashierId: cashierId },
+      });
+
+      // Delete all game sessions (these should already cascade, but being explicit)
+      await tx.gameSession.deleteMany({
+        where: { cashierId: cashierId },
+      });
+
+      // Delete all win cut tables (these should already cascade, but being explicit)
+      await tx.winCutTable.deleteMany({
+        where: { cashierId: cashierId },
+      });
+
+      // Finally, delete the cashier
+      await tx.cashier.delete({
+        where: { id: cashierId },
+      });
+    });
+
+    return NextResponse.json({ message: "Cashier deleted successfully" });
+  } catch (error) {
+    console.error("Cashier DELETE error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete cashier" },
+      { status: 500 }
+    );
+  }
+}

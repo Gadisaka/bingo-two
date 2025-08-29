@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/common/mainlayout";
-import { LayoutDashboard, Gamepad2, FileText } from "lucide-react";
+import { LayoutDashboard, Gamepad2, FileText, User } from "lucide-react";
 import { useAuth } from "@/components/AuthContext";
 
 export default function AdminLayout({
@@ -38,6 +38,12 @@ export default function AdminLayout({
       title="Admin Dashboard"
       sidebarItems={[
         {
+          name: "Voucher",
+          icon: <FileText className="h-4 w-4" />,
+          path: "https://admin.goldbingo.net/",
+          external: true,
+        },
+        {
           name: "Dashboard",
           icon: <LayoutDashboard className="h-4 w-4" />,
           path: "/admin",
@@ -51,6 +57,11 @@ export default function AdminLayout({
           name: "Reports",
           icon: <FileText className="h-4 w-4" />,
           path: "/admin/report",
+        },
+        {
+          name: "Profile",
+          icon: <User className="h-4 w-4" />,
+          path: "/admin/profile",
         },
       ]}
     >

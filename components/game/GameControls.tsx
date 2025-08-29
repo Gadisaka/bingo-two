@@ -34,6 +34,17 @@ export default function GameControls({
 }: GameControlsProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGameFinished, setIsGameFinished] = useState(false);
+  const [isShuffleAnimating, setIsShuffleAnimating] = useState(false);
+
+  // Preload the shuffle video for smooth playback
+  useEffect(() => {
+    const video = document.createElement("video");
+    video.preload = "auto";
+    video.src = "/shuffleAnimation.mp4";
+    video.muted = true;
+    // Load the video into browser cache
+    video.load();
+  }, []);
 
   const handleFinishGame = () => {
     setIsGameFinished(true);
@@ -65,6 +76,23 @@ export default function GameControls({
     new Audio("/sounds/shuffle.mp3")
       .play()
       .catch((e) => console.warn("Shuffle sound failed", e));
+  };
+
+  // Handle shuffle with animation
+  const handleShuffleWithAnimation = () => {
+    setIsShuffleAnimating(true);
+    // Call the original shuffle function
+    shuffel();
+
+    // Set timer to match shuffle duration (10 seconds)
+    setTimeout(() => {
+      setIsShuffleAnimating(false);
+    }, 10000);
+  };
+
+  // Handle animation end (fallback)
+  const handleAnimationEnd = () => {
+    // This will be called when video ends, but timer will handle the 10-second duration
   };
 
   return (
@@ -129,8 +157,8 @@ export default function GameControls({
             className={`relative cursor-pointer text-white font-bold text-3xl h-16 w-48 px-6 py-3 ${
               isAutoPlaying && "text-white"
             }`}
-            disabled={isAutoPlaying}
-            onClick={shuffel}
+            disabled={isAutoPlaying || isShuffleAnimating}
+            onClick={handleShuffleWithAnimation}
           >
             <img
               src="/button_bg.png"
@@ -194,6 +222,29 @@ export default function GameControls({
         {/* </div> */}
         {/* </div> */}
       </div>
+
+      {/* Shuffle Animation Overlay */}
+      {isShuffleAnimating && (
+        <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+          <video
+            className="w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            onError={handleAnimationEnd}
+            style={{
+              willChange: "transform",
+              backfaceVisibility: "hidden",
+              transform: "translateZ(0)",
+            }}
+          >
+            <source src="/shuffleAnimation.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      )}
     </div>
   );
 }
