@@ -937,7 +937,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         : [];
 
     return (
-      <div className="grid grid-cols-5 gap-1 bg-white mb-4 text-center font-bold w-[250px] p-2">
+      <div className="grid grid-cols-5 gap-1 bg-white mb-4 text-center font-bold w-[320px] p-2">
         {/* <div className="bg-blue-500 text-white p-1 rounded">B</div>
         <div className="bg-red-500 text-white p-1 rounded">I</div>
         <div className="bg-green-500 text-white p-1 rounded">N</div>
@@ -958,7 +958,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
               <div
                 key={`${letter}-${rowIndex}`}
                 className={cn(
-                  "border p-1 text-center font-bold w-12 h-12 flex text-3xl font-varsity items-center justify-center bg-white text-black",
+                  "border p-1 text-center font-bold w-16 h-16 flex text-4xl font-varsity items-center justify-center bg-white text-black",
                   String(num) === "FREE" ? "bg-orange-500 text-black " : "",
                   isCalled ? "bg-orange-500 rounded-full" : "",
                   isCurrent ? "border-4 border-red-500" : "",
@@ -979,6 +979,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   };
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shuffleAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const shuffel = () => {
     const confirmed = window.confirm("Are you sure you want to shuffle?");
@@ -987,17 +988,54 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
       setAutoCall(false);
     }
     setisReseting(true);
-    playAudio("bingo_ball.mp3");
+
+    // Stop any previously playing shuffle audio
+    if (shuffleAudioRef.current) {
+      shuffleAudioRef.current.pause();
+      shuffleAudioRef.current.currentTime = 0;
+    }
+
+    // Play shuffle audio and store reference
+    const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
+    const key = `${selectedFolder}/bingo_ball`;
+    let audio = audioCache.current[key];
+
+    // If audio is not cached, load it dynamically
+    if (!audio && audioLoader.current) {
+      audio = audioLoader.current(selectedFolder, "bingo_ball");
+    }
+
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        audio.play();
+        shuffleAudioRef.current = audio;
+      } catch (err) {
+        console.warn("Shuffle audio playback failed", err);
+      }
+    }
+
     timeoutRef.current = setTimeout(() => {
       setisReseting(false);
-    }, 10000);
+      // Stop the shuffle audio after 5 seconds
+      if (shuffleAudioRef.current) {
+        shuffleAudioRef.current.pause();
+        shuffleAudioRef.current.currentTime = 0;
+        shuffleAudioRef.current = null;
+      }
+    }, 5000);
   };
 
-  // Cleanup timeout on component unmount
+  // Cleanup timeout and audio on component unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+      }
+      if (shuffleAudioRef.current) {
+        shuffleAudioRef.current.pause();
+        shuffleAudioRef.current.currentTime = 0;
+        shuffleAudioRef.current = null;
       }
     };
   }, []);

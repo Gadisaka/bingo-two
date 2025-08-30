@@ -811,8 +811,8 @@ export default function GameSetup({ onStart }: setUpProps) {
             Players ({selectedCards.length})
           </div> */}
         </div>
-        <h1 className="text-6xl  text-stroke-white font-bold my-3 z-10 text-orange-500 font-potta-one ">
-          GOLD BINGO
+        <h1 className="text-6xl text-stroke-white font-bold my-3 z-10 text-orange-500 font-varsity ">
+          SELECT CARD
         </h1>
         <div className="flex justify-center items-center gap-4">
           <div>

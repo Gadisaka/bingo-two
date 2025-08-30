@@ -84,15 +84,15 @@ export default function GameControls({
     // Call the original shuffle function
     shuffel();
 
-    // Set timer to match shuffle duration (10 seconds)
+    // Set timer to match shuffle duration (5 seconds)
     setTimeout(() => {
       setIsShuffleAnimating(false);
-    }, 10000);
+    }, 5000);
   };
 
   // Handle animation end (fallback)
   const handleAnimationEnd = () => {
-    // This will be called when video ends, but timer will handle the 10-second duration
+    // This will be called when video ends, but timer will handle the 5-second duration
   };
 
   return (
