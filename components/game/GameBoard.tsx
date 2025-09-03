@@ -167,13 +167,21 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
   >(null);
   const lastAudioFolder = useRef<string>("Gold");
 
+  // OPTIMIZATION: Audio preloading queue to limit concurrent downloads
+  const audioPreloadQueue = useRef<Array<{ folder: string; fileName: string }>>(
+    []
+  );
+  const isPreloading = useRef<boolean>(false);
+  const maxConcurrentPreloads = 3;
+  const activePreloads = useRef<number>(0);
+
   useEffect(() => {
     const preloadAudios = () => {
       // Get the selected audio folder from localStorage
       const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
 
-      const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
-      const extraFiles = [
+      // OPTIMIZATION: Only preload essential sounds, not all 75 numbers
+      const essentialFiles = [
         "win",
         "win_classical",
         "jackpot_winner",
@@ -190,17 +198,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "pass",
       ];
 
-      // Only preload from the selected folder
-      numbers.forEach((num) => {
-        const key = `${selectedFolder}/${num}`;
-        if (!audioCache.current[key]) {
-          const audio = new Audio(`/${selectedFolder}/${num}.mp3`);
-          audio.preload = "auto";
-          audioCache.current[key] = audio;
-        }
-      });
-
-      extraFiles.forEach((file) => {
+      // Preload only essential sounds
+      essentialFiles.forEach((file) => {
         const key = `${selectedFolder}/${file}`;
         if (!audioCache.current[key]) {
           const audio = new Audio(`/${selectedFolder}/${file}.mp3`);
@@ -209,7 +208,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         }
       });
 
-      // Add a function to dynamically load audio from other folders when needed
+      // Add a function to dynamically load audio from any folder when needed
       audioLoader.current = (folder: string, fileName: string) => {
         const key = `${folder}/${fileName}`;
         if (!audioCache.current[key]) {
@@ -226,6 +225,65 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     preloadAudios();
   }, []);
 
+  // OPTIMIZATION: Audio preloading queue system
+  const processPreloadQueue = useCallback(() => {
+    if (isPreloading.current || audioPreloadQueue.current.length === 0) return;
+
+    isPreloading.current = true;
+
+    const processNext = () => {
+      if (
+        audioPreloadQueue.current.length === 0 ||
+        activePreloads.current >= maxConcurrentPreloads
+      ) {
+        isPreloading.current = false;
+        return;
+      }
+
+      const { folder, fileName } = audioPreloadQueue.current.shift()!;
+      const key = `${folder}/${fileName}`;
+
+      if (!audioCache.current[key]) {
+        activePreloads.current++;
+        const audio = new Audio(`/${folder}/${fileName}.mp3`);
+
+        audio.addEventListener("canplaythrough", () => {
+          audioCache.current[key] = audio;
+          activePreloads.current--;
+          processNext();
+        });
+
+        audio.addEventListener("error", () => {
+          console.warn(`Failed to preload audio: ${key}`);
+          activePreloads.current--;
+          processNext();
+        });
+
+        audio.preload = "auto";
+      } else {
+        processNext();
+      }
+    };
+
+    processNext();
+  }, []);
+
+  const queueAudioPreload = useCallback(
+    (folder: string, fileName: string) => {
+      const key = `${folder}/${fileName}`;
+      if (
+        !audioCache.current[key] &&
+        !audioPreloadQueue.current.some(
+          (item) => item.folder === folder && item.fileName === fileName
+        )
+      ) {
+        audioPreloadQueue.current.push({ folder, fileName });
+        processPreloadQueue();
+      }
+    },
+    [processPreloadQueue]
+  );
+
   // Function to handle audio folder changes
   const handleAudioFolderChange = useCallback((newFolder: string) => {
     // Clear existing audio cache for the old folder
@@ -238,9 +296,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         }
       });
 
-      // Preload new folder audio files
-      const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
-      const extraFiles = [
+      // OPTIMIZATION: Only preload essential sounds, not all 75 numbers
+      const essentialFiles = [
         "win",
         "win_classical",
         "jackpot_winner",
@@ -257,16 +314,8 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "pass",
       ];
 
-      numbers.forEach((num) => {
-        const key = `${newFolder}/${num}`;
-        if (!audioCache.current[key]) {
-          const audio = new Audio(`/${newFolder}/${num}.mp3`);
-          audio.preload = "auto";
-          audioCache.current[key] = audio;
-        }
-      });
-
-      extraFiles.forEach((file) => {
+      // Preload only essential sounds from new folder
+      essentialFiles.forEach((file) => {
         const key = `${newFolder}/${file}`;
         if (!audioCache.current[key]) {
           const audio = new Audio(`/${newFolder}/${file}.mp3`);
@@ -282,54 +331,58 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "audioFolder" && e.newValue) {
         handleAudioFolderChange(e.newValue);
+        lastAudioFolder.current = e.newValue;
       }
     };
 
     // Listen for changes from other tabs/windows
     window.addEventListener("storage", handleStorageChange);
 
-    // Also check for changes in the current tab
-    const checkAudioFolder = () => {
-      const currentFolder = localStorage.getItem("audioFolder") || "Gold";
-      if (lastAudioFolder.current !== currentFolder) {
-        handleAudioFolderChange(currentFolder);
-        lastAudioFolder.current = currentFolder;
-      }
-    };
-
-    // Check every second for changes
-    const interval = setInterval(checkAudioFolder, 1000);
+    // OPTIMIZATION: Remove polling, use event-driven approach only
+    // The storage event will handle cross-tab changes
+    // For same-tab changes, we'll rely on the component that changes the folder
+    // to call handleAudioFolderChange directly
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      clearInterval(interval);
     };
   }, [handleAudioFolderChange]);
 
   // Updated playAudioForNumber function using selected folder
-  const playAudioForNumber = useCallback((num: number) => {
-    // Check if audio is muted
-    const isMuted = localStorage.getItem("audioMuted") === "true";
-    if (isMuted) return;
+  const playAudioForNumber = useCallback(
+    (num: number) => {
+      // Check if audio is muted
+      const isMuted = localStorage.getItem("audioMuted") === "true";
+      if (isMuted) return;
 
-    const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
-    const key = `${selectedFolder}/${num}`;
-    let audio = audioCache.current[key];
+      const selectedFolder = localStorage.getItem("audioFolder") || "Gold";
+      const key = `${selectedFolder}/${num}`;
+      let audio = audioCache.current[key];
 
-    // If audio is not cached, load it dynamically
-    if (!audio && audioLoader.current) {
-      audio = audioLoader.current(selectedFolder, num.toString());
-    }
-
-    if (audio) {
-      try {
-        audio.currentTime = 0;
-        audio.play();
-      } catch (err) {
-        console.warn("Playback failed for", key, err);
+      // If audio is not cached, load it immediately for playback
+      if (!audio && audioLoader.current) {
+        audio = audioLoader.current(selectedFolder, num.toString());
       }
-    }
-  }, []);
+
+      if (audio) {
+        try {
+          audio.currentTime = 0;
+          audio.play();
+        } catch (err) {
+          console.warn("Playback failed for", key, err);
+        }
+      }
+
+      // OPTIMIZATION: Preload next few numbers in background
+      for (let i = 1; i <= 5; i++) {
+        const nextNum = num + i;
+        if (nextNum <= 75) {
+          queueAudioPreload(selectedFolder, nextNum.toString());
+        }
+      }
+    },
+    [queueAudioPreload]
+  );
 
   const playAudio = useCallback((path: string) => {
     // Check if audio is muted

@@ -1,7 +1,5 @@
 import { BingoCard } from "@/types/types";
 
-// N: [31, 32, "FREE" as any, 34, 35],
-// 100 predefined Bingo cards for consistent gameplay
 export const bingoCards100: BingoCard[] = [
   {
     id: 1,
@@ -361,13 +359,13 @@ export const bingoCards100: BingoCard[] = [
     I: [16, 20, 27, 17, 19],
     N: [42, 35, "FREE" as any, 33, 38],
     G: [52, 57, 58, 55, 59],
-    O: [64, 72, 59, 63, 61],
+    O: [64, 72, 69, 63, 61],
   },
   {
     id: 46,
     B: [8, 10, 9, 11, 4],
     I: [19, 24, 30, 18, 25],
-    N: [45, 35, "FREE" as any, 34, 31],
+    N: [45, 35, "FREE" as any, 44, 31],
     G: [57, 49, 53, 51, 48],
     O: [69, 62, 66, 65, 68],
   },
@@ -951,7 +949,7 @@ export const bingoCards100: BingoCard[] = [
     id: 119,
     B: [2, 12, 3, 1, 8],
     I: [30, 25, 17, 29, 20],
-    N: [42, 25, "FREE" as any, 43, 31],
+    N: [42, 35, "FREE" as any, 43, 31],
     G: [56, 57, 55, 54, 48],
     O: [67, 66, 71, 70, 72],
   },
@@ -1104,7 +1102,7 @@ export const bingoCards100: BingoCard[] = [
     B: [11, 6, 8, 12, 7],
     I: [22, 20, 27, 28, 19],
     N: [45, 44, "FREE" as any, 33, 35],
-    G: [47, 63, 58, 49, 50],
+    G: [47, 53, 58, 49, 50],
     O: [61, 70, 75, 63, 68],
   },
   {
