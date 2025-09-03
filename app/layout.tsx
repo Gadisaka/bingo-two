@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthContext";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import {
   Acme,
   Josefin_Sans,
@@ -69,6 +70,7 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster richColors position="top-right" />
+            <ServiceWorkerRegister />
           </AuthProvider>
         </ThemeProvider>
       </body>

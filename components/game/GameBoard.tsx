@@ -166,6 +166,7 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     ((folder: string, fileName: string) => HTMLAudioElement) | null
   >(null);
   const lastAudioFolder = useRef<string>("Gold");
+  const warmedFoldersRef = useRef<Record<string, boolean>>({});
 
   // OPTIMIZATION: Audio preloading queue to limit concurrent downloads
   const audioPreloadQueue = useRef<Array<{ folder: string; fileName: string }>>(
@@ -224,6 +225,9 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     };
     preloadAudios();
   }, []);
+
+  // Warm in-memory audio cache: preload all numbers + essentials with concurrency limits
+  let warmFolderAudioCache = useCallback((folder: string) => {}, []);
 
   // OPTIMIZATION: Audio preloading queue system
   const processPreloadQueue = useCallback(() => {
@@ -284,19 +288,21 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
     [processPreloadQueue]
   );
 
-  // Function to handle audio folder changes
-  const handleAudioFolderChange = useCallback((newFolder: string) => {
-    // Clear existing audio cache for the old folder
-    const oldFolder = localStorage.getItem("audioFolder") || "Gold";
-    if (oldFolder !== newFolder) {
-      // Remove old folder audio files from cache
-      Object.keys(audioCache.current).forEach((key) => {
-        if (key.startsWith(`${oldFolder}/`)) {
-          delete audioCache.current[key];
-        }
-      });
+  // Define warmFolderAudioCache AFTER queueAudioPreload to avoid TDZ
+  warmFolderAudioCache = useCallback(
+    (folder: string) => {
+      // Skip if already warmed this session
+      if (warmedFoldersRef.current[folder]) return;
 
-      // OPTIMIZATION: Only preload essential sounds, not all 75 numbers
+      const warmedKey = `audioWarmed_${folder}`;
+      // Optional: respect persisted flag to avoid re-warming after reset within same tab
+      if (localStorage.getItem(warmedKey) === "true") {
+        warmedFoldersRef.current[folder] = true;
+        return;
+      }
+
+      // Queue all numbers and essential files for background preload
+      const numbers = Array.from({ length: 75 }, (_, i) => `${i + 1}`);
       const essentialFiles = [
         "win",
         "win_classical",
@@ -314,17 +320,101 @@ const GameBoard = ({ onBackToSetup }: BoardProps) => {
         "pass",
       ];
 
-      // Preload only essential sounds from new folder
-      essentialFiles.forEach((file) => {
-        const key = `${newFolder}/${file}`;
-        if (!audioCache.current[key]) {
-          const audio = new Audio(`/${newFolder}/${file}.mp3`);
-          audio.preload = "auto";
-          audioCache.current[key] = audio;
-        }
+      [...numbers, ...essentialFiles].forEach((fileName) => {
+        queueAudioPreload(folder, fileName);
       });
-    }
-  }, []);
+
+      warmedFoldersRef.current[folder] = true;
+      localStorage.setItem(warmedKey, "true");
+    },
+    [queueAudioPreload]
+  );
+
+  // Function to handle audio folder changes
+  const handleAudioFolderChange = useCallback(
+    (newFolder: string) => {
+      // Clear existing audio cache for the old folder
+      const oldFolder = localStorage.getItem("audioFolder") || "Gold";
+      if (oldFolder !== newFolder) {
+        // Remove old folder audio files from cache
+        Object.keys(audioCache.current).forEach((key) => {
+          if (key.startsWith(`${oldFolder}/`)) {
+            delete audioCache.current[key];
+          }
+        });
+
+        // OPTIMIZATION: Only preload essential sounds, not all 75 numbers
+        const essentialFiles = [
+          "win",
+          "win_classical",
+          "jackpot_winner",
+          "lose",
+          "cardnotfound",
+          "reset",
+          "startgame",
+          "stopgame",
+          "bingo_ball",
+          "bonus",
+          "shuffle",
+          "start",
+          "stop",
+          "pass",
+        ];
+
+        // Preload only essential sounds from new folder
+        essentialFiles.forEach((file) => {
+          const key = `${newFolder}/${file}`;
+          if (!audioCache.current[key]) {
+            const audio = new Audio(`/${newFolder}/${file}.mp3`);
+            audio.preload = "auto";
+            audioCache.current[key] = audio;
+          }
+        });
+
+        // Warm the entire folder in the background once (in-memory + SW cache)
+        warmFolderAudioCache(newFolder);
+
+        // Also ask Service Worker to precache this folder (offline-ready)
+        try {
+          if (
+            typeof window !== "undefined" &&
+            navigator.serviceWorker?.controller
+          ) {
+            const buildUrls = (folder: string) => {
+              const base = `/${folder}`;
+              const numbers = Array.from(
+                { length: 75 },
+                (_, i) => `${base}/${i + 1}.mp3`
+              );
+              const extras = [
+                "win",
+                "win_classical",
+                "jackpot_winner",
+                "lose",
+                "cardnotfound",
+                "reset",
+                "startgame",
+                "stopgame",
+                "bingo_ball",
+                "bonus",
+                "shuffle",
+                "start",
+                "stop",
+                "pass",
+              ].map((name) => `${base}/${name}.mp3`);
+              return [...numbers, ...extras];
+            };
+            const urls = buildUrls(newFolder);
+            navigator.serviceWorker.controller.postMessage({
+              type: "PRECACHE_AUDIOS",
+              urls,
+            });
+          }
+        } catch {}
+      }
+    },
+    [warmFolderAudioCache]
+  );
 
   // Listen for audio folder changes in localStorage
   useEffect(() => {
